@@ -30,12 +30,12 @@ $(document).ready(function() {
     });
 
     var options = {
-			slidesToScroll: 1,
-			slidesToShow: 4,
+			slidesToScroll: 2,
+			slidesToShow: 2,
 			loop: true,
 			infinite: true,
-			autoplay: false,
-			autoplaySpeed: 3000,
+			autoplay: true,
+			autoplaySpeed: 7000,
     }
 
 		// Initialize all div with carousel class
