@@ -2319,7 +2319,7 @@ var defaultOptions = {
   infinite: false,
 
   effect: 'translate',
-  duration: 3000,
+  duration: 300,
   timing: 'ease',
 
   autoplay: false,
