@@ -1,0 +1,442 @@
+# Template for Mip-NeRF 360 scenes (COLMAP / instant-ngp layout).
+#
+# Expected on disk, per scene:
+#   <scene>/transforms.json
+#   <scene>/images_<factor>/                    RGB frames
+#   <scene>/images_<factor>_albedo<method>/     albedo from the 2D prior
+#   <scene>/images_<factor>_shading<method>/    shading from the 2D prior
+#   <scene>/images_<factor>_meta/               raw_statistics_eps_<eps>.json
+#
+# These are unbounded scenes, so geoms.background.append_bkg_points is on: one
+# extra attention slot per ray is placed where the ray meets a large background
+# sphere. Estimate sphere_center / sphere_radius from the COLMAP point cloud
+# before training a new scene; the defaults below suit a garden-sized capture.
+#
+# Point a run at a scene with:
+#   --index <run name> --scene_1.index <scene> \
+#   --scene_1.dataset.path <scene dir> --scene_1.eval.dataset.path <scene dir> \
+#   --test_dataset_path <scene dir>
+index: "MipNeRF360_garden"
+save_dir: "./experiments"
+dataset_root: "./data/mipnerf360/"
+shared_components: []
+seed: 1
+print_step: 500
+save_checkpoint_step: 5000
+scene_1:
+  index: "truck"
+  train: true
+  load_path:
+  save_dir: "./experiments"
+  seed: 1
+  eps: 1.0e-6
+  use_amp: false
+  amp_dtype: "float16"
+  scaler_init_scale: 65536.0
+  scaler_growth_interval: 4000
+  scaler_enabled: true
+  scaler_min_scale: -1.0
+  dataset:
+    mode: "train"
+    coord_scale: 40.0
+    type: "mip360"
+    white_bg: false
+    path: "garden"
+    convert_image_to_raw_space: false
+    force_convert_image_to_raw_space_white_bg: false
+    image_file_format: "png"
+    factor: 4
+    batch_size: 100
+    num_workers: 0
+    shuffle: true
+    extract_patch: true
+    extract_online: true
+    read_offline: true
+    train_albedo_extraction_method: ""
+    test_albedo_extraction_method: ""
+    render_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+    render_pred_preprocessing: []
+    render_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    render_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    albedo_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+    albedo_pred_preprocessing: []
+    albedo_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    albedo_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    shading_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+    shading_pred_preprocessing: []
+    shading_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    shading_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    patches:
+      type: "random"
+      height: 16
+      width: 16
+      overlap: 10
+      max_patches: 10
+    rays:
+      focal_factor: 1.0
+      cam_world: 'world'
+  geoms:
+    points:
+      select_k: 20
+      select_k_type: "d2r"
+      select_k_sorted: false
+      select_k_factor: 2
+      sample_k: 20
+      sample_k_factor: 1.0
+      sample_k_type: "uniform"
+      load_path:
+      init_type: "norm-cube"
+      init_scale: [1.0, 1.0, 1.0]
+      init_center: [0.0, 0.0, 0.0]
+      num: 5000
+      conf_type: 1
+      conf_init_val: 0.0
+      add_type: "random"
+      add_k: 3
+      add_sample_type: "acc-coord-grad-norm-max"
+      add_sample_k: 10
+    background:
+      # Unbounded-scene background: append one ray-sphere intersection point per
+      # ray. sphere_center is in raw world units and is scaled by dataset.coord_scale.
+      append_bkg_points: true
+      sphere_center: [0.0, 0.0, 0.0]
+      sphere_radius: 150.0
+      use_bkg_feat: true
+      type: 1
+      load_path:
+      learnable: false
+      init_type: "ones"
+      render_init_scale: 1.1
+      albedo_init_scale: 1.1
+      shading_init_scale: 1.1
+      seq_len: 1
+      constant: 4.0
+    point_feats:
+      type: "learnable"
+      load_path:
+      dim: 64
+      factor: 1.0
+      sh_degree: 3
+      use_inv: true
+      use_ink: false
+      use_inq: false
+      online: false
+      mv_model: # used if type is "mv"
+        backbone: "resnet18"
+        feat_size: 16
+        last_extract_layer: -2
+        translation: -1.7
+        pre_scale: false
+        resolution: 128
+        upscale_feats: false
+        img_pixel_size: 6
+        feat_pixel_size: 1
+  models:
+    out_fuse_type: 1
+    use_renderer: true
+    use_implicit_renderer: false
+    use_albedo: true
+    predict_rgb_in_log_space: false
+    predict_raw_in_log_space: true
+    include_loss_in_pred_space: true
+    include_loss_in_original_space: false
+    weight_loss_in_pred_space: 1.0
+    weight_loss_render_in_original_space: 0.0
+    weight_loss_albedo_in_original_space: 0.0
+    predict_in_log_space_eps: 1e-03
+    rgb_loss_weight: 8.0
+    include_rgb_loss: true
+    albedo_loss_weight: 8.0
+    include_albedo_loss: true
+    last_act: "none"
+    normalize_topk_attn: true
+    shading_code_dim: 128
+    sftmax_temp: 1.0
+    mapping_mlp:
+      use: false
+      num_layers: 3
+      dim: 256
+      act: "relu"
+      last_act: "none"
+      out_dim: 64
+    transformer:
+      d_model: 256
+      d_out: 256
+      k_type: 1
+      q_type: 1
+      v_type: 1
+      use_double_value_MLP: true # this flag indicates whether we want to use two value MLP our not
+      embed:
+        embed_type: 1
+        share_embed: false
+        k_L: [6, 6, 6]
+        q_L: [6]
+        v_L: [6, 6]
+        dropout: 0.0
+        temperature: 1.0
+        gamma: 10.0
+        pe_factor: 2.0
+        pe_mult_factor: 1.0
+        pe_type: "none"
+        pe_init_std: 0.2
+        key:
+          d_ff: 256
+          d_ff_out: 256
+          n_ff_layer: 5
+          ff_act: "relu"
+          ff_act_a: 1.0
+          ff_act_b: 1.0
+          ff_act_trainable: false
+          ff_last_act: "none"
+          norm: "layernorm"
+          dropout_ff: 0.0
+          residual_ff: false
+          skip_layers: []
+          half_layers: []
+          residual_layers: []
+          residual_dims: []
+        query:
+          d_ff: 256
+          d_ff_out: 256
+          n_ff_layer: 5
+          ff_act: "relu"
+          ff_act_a: 1.0
+          ff_act_b: 1.0
+          ff_act_trainable: false
+          ff_last_act: "none"
+          norm: "layernorm"
+          dropout_ff: 0.0
+          residual_ff: false
+          skip_layers: []
+          half_layers: []
+          residual_layers: []
+          residual_dims: []
+        value:
+          d_ff: 256
+          d_ff_out: 32
+          n_ff_layer: 8
+          ff_act: "relu"
+          ff_act_a: 1.0
+          ff_act_b: 1.0
+          ff_act_trainable: false
+          ff_last_act: "none"
+          norm: "none"
+          dropout_ff: 0.0
+          residual_ff: false
+          skip_layers: []
+          half_layers: []
+          residual_layers: []
+          residual_dims: []
+        d_ff: 256
+        d_ff_out: 256
+        n_ff_layer: 5
+        ff_act: "relu"
+        ff_act_a: 1.0
+        ff_act_b: 1.0
+        ff_act_trainable: false
+        ff_last_act: "none"
+        norm: "layernorm"
+        dropout_ff: 0.0
+        residual_ff: false
+      block:
+        n_head: 1
+        n_block: 1
+        score_act: "relu" #softplus_1_1_0
+        k_act: "none"
+        q_act: "none"
+        transform_kq: true
+        temperature: 1.0
+        dropout_attn: 0.0
+        dropout_ff: 0.0
+        residual_attn: true
+        residual_ff: true
+        d_ff: 256
+        n_ff_layer: 2
+        ff_act: "relu"
+        ff_act_a: 1.0
+        ff_act_b: 1.0
+        ff_act_trainable: false
+        ff_last_act: "none"
+        norm: "layernorm"
+    renderer:
+      generator:
+        type: "snp-small-unet"
+        unet:
+          num_layers: 4
+          n_midchannels: 256
+          bilinear: true
+          use_bn: false
+          pooling: "avg"
+          use_gated: true
+          last_act: "tanh"
+        snp_small_unet:
+          bilinear: false
+          norm: "none"
+          single: true
+          last_act: "none"
+          affine_layer: -1
+          channel_factor: 1
+    albedo:
+      generator:
+        type: "snp-small-unet"
+        unet:
+          num_layers: 4
+          n_midchannels: 256
+          bilinear: true
+          use_bn: false
+          pooling: "avg"
+          use_gated: true
+          last_act: "tanh"
+        snp_small_unet:
+          bilinear: false
+          norm: "none"
+          single: true
+          last_act: "none"
+          affine_layer: -1
+          channel_factor: 1
+      features:
+        UNet_ratio: 0.5
+        Emb_value_MLP_inp_ratio: 0.5
+        Emb_value_MLP_out_ratio: 0.5
+        side: "right"
+    supervision_scaler:
+      use: false
+      size: -1
+      type: "learnable"
+      intial_value: 0.85
+      apply_interval_start: 100000
+      apply_interval_end: 120000
+      apply_interval_length: -1
+  training:
+    GT_albedo_preprocessing: []
+    loss_func_preprocessing: []
+    steps: 250000
+    score_step: 250001
+    bkg_step: 250001
+    prune_steps: 500
+    prune_start: 10000
+    prune_stop: 250000
+    prune_thresh: -0.0
+    prune_thresh_list: []
+    prune_steps_list: []
+    prune_type: "<"
+    select_k_factor: -1
+    sample_k_factor: -1
+    add_steps: 1000
+    add_start: 20000
+    add_stop: 60000
+    add_num: 1000
+    add_num_list: []
+    add_steps_list: []
+    exclude_keys: []
+    albedo_space_carving_loss:
+      use: false
+      num_samples: 10
+    fix_keys: []
+    render_losses:
+      mse: 1.0
+      lpips: 1.0e-2
+      lpips_alex: 0.0
+    albedo_losses:
+      mse: 1.0
+    lr:
+      lr_factor: 1.0
+      mapping_mlp:
+        type: "none"
+        base_lr: 1.0e-6
+        factor: 4
+        warmup: 0
+        weight_decay: 0
+      transformer:
+        type: "cosine-hlfperiod"
+        base_lr: 2.25e-4
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+      points:
+        type: "cosine"
+        base_lr: 8.0e-3
+        factor: 4
+        warmup: 0
+        weight_decay: 0
+      bkg_feats:
+        type: "none"
+        base_lr: 0.0
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+      points_conf_scores:
+        type: "cosine-hlfperiod"
+        base_lr: 1.0e-3
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+      feats:
+        type: "cosine-hlfperiod"
+        base_lr: 0.75e-3
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+      generator:
+        type: "cosine-hlfperiod"
+        base_lr: 0.75e-4
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+      albedo:
+        type: "cosine-hlfperiod"
+        base_lr: 0.75e-4
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+      supervision_scaler:
+        type: "cosine-hlfperiod"
+        base_lr: 0.25e-04
+        factor: 4
+        warmup: 10000
+        weight_decay: 0
+  eval:
+    dataset:
+      name: "testset"
+      mode: "test"
+      extract_patch: false
+      type: "mip360"
+      white_bg: false
+      path: "garden"
+      factor: 4
+      num_workers: 0
+      num_slices: -1
+    step: 1000
+    img_idx: 0
+    max_height: 50
+    max_width: 50
+    save_fig: true
+  test:
+    load_path:
+    max_height: 50
+    max_width: 50
+    datasets:
+    - name: "testset"
+      mode: "test"
+      extract_patch: false
+      type: "mip360"
+      white_bg: false
+      path: "garden"
+      factor: 4
+      num_workers: 0
+      num_slices: -1
+      render_GT_preprocessing: ["log+eps", "normalize", white_bg]
+      albedo_GT_preprocessing: ["log+eps", "normalize", white_bg]
+      shading_GT_preprocessing: ["log+eps", "normalize", white_bg]
+      render_pred_preprocessing: []
+      albedo_pred_preprocessing: []
+      shading_pred_preprocessing: []
+      render_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      albedo_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      shading_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      render_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      albedo_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      shading_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    plots:
+      pcrgb: true
+      featattn: false
