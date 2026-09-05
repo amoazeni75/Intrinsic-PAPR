@@ -20,4 +20,4 @@ Author camera-ready copies (Meteor package 514), not the publisher typeset chapt
 
 ## Code
 
-Implementation will be released soon on the `main` branch of this repository.
+The implementation is on the [`main`](https://github.com/amoazeni75/Intrinsic-PAPR/tree/main) branch of this repository.
