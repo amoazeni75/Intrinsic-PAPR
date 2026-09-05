@@ -43,7 +43,7 @@
   <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
   <link rel="stylesheet" href="static/css/index.css">
-  <link rel="stylesheet" href="static/css/custom.css?v=6">
+  <link rel="stylesheet" href="static/css/custom.css?v=8">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -151,7 +151,7 @@
             </div>
           </div>
 
-          <p class="tldr"><b>TL;DR.</b> Volume rendering can paint the right pixels while attaching albedo and shading to the wrong points. Intrinsic PAPR renders opaque surfaces with proximity attention, so every point is supervised directly — and point-level edits stay consistent.</p>
+          <p class="tldr"><b>TL;DR.</b> Volume rendering composites translucent primitives along each ray and supervises only the aggregated colour, so one primitive’s albedo and shading can be wrong while the pixel is right. Adding views does not resolve it, because near-coincident primitives render identically from every direction. Intrinsic PAPR renders an opaque surface with proximity attention and predicts appearance at the ray–surface intersection, making each point identifiable.</p>
         </div>
       </div>
     </div>
@@ -165,19 +165,19 @@
       <div class="teaser-grid">
         <figure class="teaser-card">
           <img src="static/images/teaser-decomp.webp" alt="Render, albedo, and shading decomposition">
-          <figcaption>View-consistent albedo and shading on real and synthetic scenes.</figcaption>
+          <figcaption>A real scene decomposed into multi-view consistent albedo and shading.</figcaption>
         </figure>
         <figure class="teaser-card">
           <img src="static/images/teaser-truck.webp" alt="Freeform albedo edit on a truck">
-          <figcaption>Freeform albedo edit: rust removal on the truck, 3D-consistent.</figcaption>
+          <figcaption>Freeform albedo editing — rust removal on the Truck scene.</figcaption>
         </figure>
         <figure class="teaser-card">
           <img src="static/images/teaser-shadow-remove.webp" alt="Shadow removal in a garden">
-          <figcaption>Shadow removal in a user-specified region of a real garden.</figcaption>
+          <figcaption>Geometry-aware shadow removal in a user-defined 3D region.</figcaption>
         </figure>
         <figure class="teaser-card">
           <img src="static/images/teaser-shadow-add.webp" alt="Shadow addition in a garden">
-          <figcaption>Geometry-aware shadow addition from a 2D region sketch.</figcaption>
+          <figcaption>Shadow addition in a user-defined region, preserving scene structure.</figcaption>
         </figure>
       </div>
       <p class="caption has-text-centered">Figure 1. Intrinsic PAPR decomposes a scene into albedo and shading, then supports localized edits that remain consistent across views.</p>
@@ -209,7 +209,7 @@
       Translucent volumetric primitives are supervised only after they are accumulated along a ray. Individual points can therefore store the wrong albedo or shading as long as the sum looks right. Extra training views do not resolve this: coincident primitives remain observationally equivalent from every camera.
     </p>
     <img class="paper-figure" src="static/images/motivation.webp" alt="Volume rendering misattribution versus PAPR per-point supervision" loading="lazy">
-    <p class="caption">(a) Volume rendering admits compensatory errors on individual primitives. (b) PAPR forms an opaque surface and supervises appearance at the ray–surface intersection, so each point’s features are identifiable.</p>
+    <p class="caption">(a) Volume rendering supervises only the transmittance-weighted sum along a ray, so individual translucent primitives can learn incorrect features whose errors cancel in the aggregate. (b) Proximity attention connects nearby extent-free points into an opaque surface and predicts appearance at the ray–surface intersection, so the photometric residual on a ray backpropagates primarily to the point that dominates it.</p>
   </div>
 </section>
 
@@ -235,10 +235,10 @@
       <div class="metric-chip"><span class="num">35.00</span><span class="lbl">dB NVS · synthetic</span></div>
       <div class="metric-chip"><span class="num">31.21</span><span class="lbl">dB albedo PSNR</span></div>
       <div class="metric-chip"><span class="num">29.99</span><span class="lbl">dB NVS · real-world</span></div>
-      <div class="metric-chip"><span class="num">~5×</span><span class="lbl">lower transfer error vs GS-IR</span></div>
+      <div class="metric-chip"><span class="num">&gt;4×</span><span class="lbl">lower transfer error vs GS-IR</span></div>
     </div>
     <p class="caption has-text-centered">
-      Headline numbers from the camera-ready paper. Synthetic NVS / albedo: 35.00 / 31.21 dB (vs MAIR++ 24.42 / 22.28). Transfer error is 5.04–5.23× below GS-IR at every view count.
+      Headline numbers from the camera-ready paper. Synthetic NVS and albedo: 35.00 and 31.21 dB, against 24.42 and 22.28 dB for MAIR++. The paper reports more than a 4× reduction in albedo- and shading-transfer error over a leading 3DGS-based method, and the margin holds at every view count from 25 to 200.
     </p>
   </div>
 </section>
@@ -251,9 +251,9 @@
       If a primitive truly owns its albedo or shading, copying that feature to another region should reproduce the source attribute. Volumetric methods drift; ours stays faithful. Use the arrows to browse additional scenes.
     </p>
     <img class="paper-figure" src="static/images/albedo-transfer.webp" alt="Per-point albedo transfer comparison" loading="lazy">
-    <p class="caption">Albedo transfer: copying a source point’s albedo onto a target region. Volumetric baselines drift; ours stays faithful.</p>
+    <p class="caption">Per-point albedo transfer copies the albedo features of randomly chosen source points onto a target region. Correct attribution means the target reproduces the source albedo independently of shading. Volumetric baselines, supervised only after transmittance-weighted aggregation, show colour drift and high variability across transfers.</p>
     <img class="paper-figure" src="static/images/shading-transfer.webp" alt="Per-point shading transfer comparison" loading="lazy" style="margin-top:1.2rem">
-    <p class="caption">Shading transfer: illumination stays bound to the source primitive rather than mixing along the ray.</p>
+    <p class="caption">Per-point shading transfer probes whether illumination is bound to individual primitives and local geometry. The volumetric baselines show inconsistent patterns and artefacts indicative of mixed attribution along the ray, while our transferred shading stays geometry-consistent and tracks the source primitive.</p>
 
     <div class="video-grid-2" style="margin:1.4rem 0 1.25rem">
       <figure class="video-card">
@@ -270,7 +270,7 @@
       </figure>
     </div>
 
-    <h3 class="title is-5" style="margin-top:1.5rem">Albedo transfer</h3>
+    <h3 class="title is-5 has-text-centered" style="margin-top:1.5rem">Albedo transfer</h3>
     <div id="albedo-carousel" class="carousel results-carousel">
       <div class="item">
         <video autoplay muted loop playsinline controls>
@@ -310,7 +310,7 @@
       </div>
     </div>
 
-    <h3 class="title is-5" style="margin-top:1.75rem">Shading transfer</h3>
+    <h3 class="title is-5 has-text-centered" style="margin-top:1.75rem">Shading transfer</h3>
     <div id="shading-carousel" class="carousel results-carousel">
       <div class="item">
         <video autoplay muted loop playsinline controls>
@@ -351,7 +351,7 @@
   <div class="container is-max-desktop">
     <h2 class="title is-3 has-text-centered">Editing as a consequence of correct attribution</h2>
     <p class="section-lead has-text-justified">
-      Once albedo and shading live on the right points, freeform paint, intensity control, shadows, and unseen colours follow without a separate editing network.
+      Precise per-primitive attribution is what makes freeform editing practical. A user paints an arbitrary region on one view; those pixels are mapped to the underlying 3D points and their albedo or shading features are modified, so the edit lives in the 3D representation and stays multi-view consistent, geometry-aware and localized.
     </p>
     <div class="app-grid">
       <img class="paper-figure" src="static/images/app-freeform.webp" alt="Freeform albedo and shading edits" loading="lazy">
@@ -362,9 +362,9 @@
     </div>
     <p class="caption">(a) Freeform region edits. (b) Point-level shading intensity. (c) Scene-level shading scale. (d) Shadow add/remove. (e) Unseen colours via albedo interpolation.</p>
 
-    <h3 class="title is-5" style="margin-top:2rem">Point-level shading intensity control</h3>
+    <h3 class="title is-5 has-text-centered" style="margin-top:2rem">Point-level shading intensity control</h3>
     <p class="section-lead" style="margin-bottom:1rem">
-      We control the intensity of transferred shading from a source point (blue) to a target region (red) by scaling. Decreasing the scale reduces shading intensity; increasing it strengthens the shading.
+      Shading intensity is edited by scaling the shading feature vectors of selected primitives before transferring them to a target region (source in blue, target in red). This modulates contrast locally in a predictable, geometry-consistent way, from subtle brightening to strong darkening.
     </p>
     <div id="patch-intensity-carousel" class="carousel results-carousel">
       <div class="item">
@@ -387,9 +387,9 @@
       </div>
     </div>
 
-    <h3 class="title is-5" style="margin-top:2rem">Scene-level shading intensity control</h3>
+    <h3 class="title is-5 has-text-centered" style="margin-top:2rem">Scene-level shading intensity control</h3>
     <p class="section-lead" style="margin-bottom:1rem">
-      Scaling the shading features of all points adjusts global contrast while leaving albedo unchanged.
+      Applying a uniform scale to the shading features of all points produces a coherent scene-level adjustment while leaving geometry and albedo unchanged. Decreasing the scale reduces contrast; increasing it enhances contrast across the scene.
     </p>
     <div id="scene-intensity-carousel" class="carousel results-carousel">
       <div class="item">

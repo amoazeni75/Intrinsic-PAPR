@@ -237,3 +237,61 @@ html, body {
   }
   .metric-chip { min-width: 45%; flex: 1; }
 }
+
+/* ==========================================================================
+   Page rhythm: give the body room to breathe, size the media consistently,
+   and make captions legible on white.
+   ========================================================================== */
+
+/* 1. Keep the main column off the edges of the screen. */
+.container.is-max-desktop {
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.75rem;
+  padding-right: 1.75rem;
+}
+
+/* 2. Captions were slate-500 on white, which is hard to read.
+      Darken them and give them a little more size. */
+:root {
+  --text-caption: #334155;
+}
+
+.caption,
+.teaser-card figcaption,
+.video-card figcaption,
+figure figcaption {
+  color: var(--text-caption);
+}
+
+.caption {
+  font-size: 0.97rem;
+  line-height: 1.6;
+}
+
+.teaser-card figcaption {
+  font-size: 0.88rem;
+  line-height: 1.45;
+  padding: 0.6rem 0.8rem 0.75rem;
+}
+
+.video-card figcaption {
+  font-size: 0.88rem;
+}
+
+/* 3. Figures, teaser panels, video grids and carousels fill the column.
+      The breathing room comes from the page margin above, not from
+      shrinking the media. Only the spacing between panels is widened. */
+@media screen and (min-width: 769px) {
+  img.paper-figure {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .teaser-grid { gap: 1.75rem; }
+  .video-grid-2 { gap: 1.5rem; }
+  .video-grid-3 { gap: 1.25rem; }
+  .app-grid { gap: 1.75rem; }
+}
