@@ -252,6 +252,15 @@ html, body {
   padding-right: 1.75rem;
 }
 
+/* Bulma makes .hero a flex column and .container width:auto with auto side
+   margins, so a container that is a direct hero child is sized shrink-to-fit.
+   Its min-content width comes from the 1400px figures inside, and the cap
+   above then pins the column at 1120px at every viewport while .hero's
+   overflow:hidden clips the excess. A definite width stops that. */
+.hero > .container {
+  width: 100%;
+}
+
 /* 2. Captions were slate-500 on white, which is hard to read.
       Darken them and give them a little more size. */
 :root {
@@ -294,4 +303,78 @@ figure figcaption {
   .video-grid-2 { gap: 1.5rem; }
   .video-grid-3 { gap: 1.25rem; }
   .app-grid { gap: 1.75rem; }
+}
+
+/* --------------------------------------------------------------------------
+   Phones. The transfer section stacks a wide comparison figure, a two-up
+   video grid and two carousels, which is where the layout ran off the
+   screen. Tighten the padding, let every media element fill the column, and
+   stop anything from pushing the page wider than the viewport.
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+  .container.is-max-desktop {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .results-carousel {
+    padding: 0 1.5rem;
+  }
+
+  /* Only the outer .slider may be clamped. .slider-container carries the
+     inline track width bulma-carousel computes, and clamping it pins the
+     scroll offset at 0 so the arrows and swipe stop working. */
+  .slider {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  img.paper-figure,
+  .video-card video,
+  .results-carousel video,
+  .results-carousel img,
+  .teaser-card img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Nothing may exceed the viewport width. */
+  section,
+  .section,
+  .container,
+  .teaser-grid,
+  .video-grid-2,
+  .video-grid-3,
+  .app-grid {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .teaser-grid,
+  .video-grid-2,
+  .video-grid-3,
+  .app-grid {
+    gap: 1rem;
+  }
+}
+
+
+/* Small phones: give the clips the width back that the carousel chrome takes. */
+@media screen and (max-width: 600px) {
+  .results-carousel {
+    padding: 0;
+  }
+
+  .results-carousel .item {
+    margin: 0;
+    padding: 0.4rem;
+  }
+
+  .slider-navigation-previous,
+  .slider-navigation-next {
+    width: 2rem;
+    height: 2rem;
+  }
 }

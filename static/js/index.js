@@ -128,6 +128,12 @@ $(document).ready(function() {
 		infinite: true,
 		autoplay: false,
 		autoplaySpeed: 7000,
+		// One clip at a time up to 1023px. Two side by side is unreadable on
+		// phones and still too narrow through the tablet band.
+		breakpoints: [
+			{ changePoint: 480, slidesToShow: 1, slidesToScroll: 1 },
+			{ changePoint: 1023, slidesToShow: 1, slidesToScroll: 1 }
+		],
     }
 
 	// Initialize all div with carousel class
