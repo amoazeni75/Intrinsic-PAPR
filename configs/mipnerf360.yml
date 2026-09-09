@@ -1,0 +1,78 @@
+# Template for Mip-NeRF 360 scenes (COLMAP / instant-ngp layout).
+#
+# Expected on disk, per scene:
+#   <scene>/transforms_train.json, <scene>/transforms_test.json
+#   <scene>/images_<factor>/                    RGB frames
+#   <scene>/images_<factor>_albedo<method>/     albedo from the 2D prior
+#   <scene>/images_<factor>_meta/               raw_statistics_eps_<eps>.json
+#
+# These are unbounded scenes, so geoms.background.append_bkg_points is on: one
+# extra attention slot per ray is placed where the ray meets a large background
+# sphere. Estimate sphere_center / sphere_radius from the COLMAP point cloud
+# before training a new scene; the values below suit a garden-sized capture.
+#
+# dataset.factor selects which images_<factor> directory to read and has no
+# default; set it to the resolution you want.
+#
+# Point a run at a scene with:
+#   --index <run name> --scene_1.index <scene> \
+#   --scene_1.dataset.path <scene dir> --scene_1.eval.dataset.path <scene dir> \
+#   --test_dataset_path <scene dir> \
+#   --scene_1.dataset.factor N --scene_1.eval.dataset.factor N
+#
+# Everything not listed here comes from base.yml.
+base: "base.yml"
+index: "MipNeRF360_garden"
+dataset_root: "./data/mipnerf360/"
+scene_1:
+  index: "garden"
+  dataset:
+    coord_scale: 40.0
+    type: "mip360"
+    white_bg: false
+    path: "garden"
+    image_file_format: "png"
+    factor:
+  geoms:
+    points:
+      init_scale: [1.0, 1.0, 1.0]
+      num: 5000
+      add_sample_type: "acc-coord-grad-norm-max"
+    background:
+      append_bkg_points: true
+      sphere_center: [0.0, 0.0, 0.0]
+      sphere_radius: 150.0
+      constant: 4.0
+  models:
+    # w_SC = 0.125 (supplement, real-world): w_SC = albedo_loss_weight / rgb_loss_weight
+    albedo_loss_weight: 1.0
+    transformer:
+      embed:
+        key:
+          ff_act: "relu"
+        query:
+          ff_act: "relu"
+        value:
+          ff_act: "relu"
+          skip_layers: []
+  training:
+    prune_stop: 250000
+    prune_thresh_list: []
+    prune_steps_list: []
+    add_stop: 60000
+    lr:
+      points:
+        base_lr: 0.008
+  eval:
+    dataset:
+      type: "mip360"
+      white_bg: false
+      path: "garden"
+      factor:
+    img_idx: 0
+  test:
+    datasets:
+    - type: "mip360"
+      white_bg: false
+      path: "garden"
+      factor:

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "intrinsic-papr"
+version = "1.0.0"
+description = "Intrinsic PAPR: tackling misattribution in 3D intrinsic decomposition via proximity attention point rendering"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = "==3.8.*"
+
+# The pinned environment the paper's runs used is environment.yml; these are the
+# imports the package itself needs, for when it is installed into an existing
+# environment rather than built from that file.
+dependencies = [
+    "torch",
+    "torchvision",
+    "numpy",
+    "scipy",
+    "scikit-image",
+    "scikit-learn",
+    "matplotlib",
+    "pillow",
+    "imageio",
+    "imageio-ffmpeg",
+    "opencv-python",
+    "lpips",
+    "pyyaml",
+    "tqdm",
+    "open3d",
+]
+
+[project.urls]
+Homepage = "https://amoazeni75.github.io/Intrinsic-PAPR/"
+
+[tool.setuptools.packages.find]
+include = ["intrinsic_papr*"]
+
+[tool.ruff.lint]
+select = ["F401", "F811", "F841", "E722", "F821", "F405"]

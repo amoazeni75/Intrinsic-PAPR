@@ -1,0 +1,57 @@
+# Template for object-centric synthetic scenes (NeRF Synthetic / TensoIR).
+#
+# Point a run at a scene with:
+#   --index <run name> --scene_1.index <scene> \
+#   --scene_1.dataset.path <scene dir> --scene_1.eval.dataset.path <scene dir> \
+#   --test_dataset_path <scene dir>
+#
+# Everything not listed here comes from base.yml.
+base: "base.yml"
+index: "Final_Lego"
+dataset_root: "./data/nerf_synthetic/"
+scene_1:
+  index: "lego"
+  dataset:
+    coord_scale: 10.0
+    type: "synthetic"
+    white_bg: true
+    path: "pretrained_albedo_transparent_bg_lego"
+    image_file_format: "npy"
+  geoms:
+    points:
+      init_scale: [1.2, 1.2, 1.2]
+      num: 3000
+      add_sample_type: "acc-coord-grad-norm-max-hybrid-top-knn-std"
+    background:
+      constant: 5.0
+  models:
+    # w_SC = 0.085 (supplement): w_SC = albedo_loss_weight / rgb_loss_weight
+    albedo_loss_weight: 0.68
+    transformer:
+      embed:
+        key:
+          ff_act: "leakyrelu"
+        query:
+          ff_act: "leakyrelu"
+        value:
+          ff_act: "leakyrelu"
+          skip_layers: [5]
+  training:
+    prune_stop: 150000
+    prune_thresh_list: [0.0, 0.2]
+    prune_steps_list: [40000]
+    add_stop: 70000
+    lr:
+      points:
+        base_lr: 0.003
+  eval:
+    dataset:
+      type: "synthetic"
+      white_bg: true
+      path: "pretrained_albedo_transparent_bg_lego"
+    img_idx: 50
+  test:
+    datasets:
+    - type: "synthetic"
+      white_bg: true
+      path: "pretrained_albedo_transparent_bg_lego"

@@ -1,0 +1,298 @@
+# Shared defaults for every scene type.
+#
+# The three templates in this folder (synthetic.yml, tanks_and_temples.yml,
+# mipnerf360.yml) each declare `base: base.yml` and carry only the fields that
+# differ for that dataset. At load time the template is merged over this file:
+# mappings merge key by key, lists of mappings merge element by element, and any
+# other value in the template replaces the one here.
+#
+# Every field below is still overridable on the command line, for example
+#   --scene_1.training.lr.points.base_lr 0.005
+save_dir: "./experiments"
+seed: 1
+print_step: 500
+save_checkpoint_step: 5000
+scene_1:
+  train: true
+  load_path:
+  save_dir: "./experiments"
+  seed: 1
+  eps: 1.0e-06
+  use_amp: false
+  amp_dtype: "float16"
+  scaler_min_scale: -1.0
+  dataset:
+    convert_image_to_raw_space: false
+    force_convert_image_to_raw_space_white_bg: false
+    batch_size: 100
+    num_workers: 0
+    shuffle: true
+    extract_patch: true
+    extract_online: true
+    read_offline: true
+    train_albedo_extraction_method: ""
+    test_albedo_extraction_method: ""
+    render_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+    render_pred_preprocessing: []
+    render_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    render_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    albedo_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+    albedo_pred_preprocessing: []
+    albedo_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    albedo_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+    patches:
+      height: 16
+      width: 16
+      # With extract_online (the setting these configs use) the dataset reads one
+      # patch per sample, and this count only decides how many random offsets are
+      # drawn per sample. Changing it changes the random stream, and so the run.
+      max_patches: 10
+    rays:
+      focal_factor: 1.0
+      cam_world: "world"
+  geoms:
+    points:
+      select_k: 20
+      select_k_type: "d2r"
+      select_k_sorted: false
+      select_k_factor: 2
+      sample_k: 20
+      sample_k_factor: 1.0
+      sample_k_type: "uniform"
+      load_path:
+      init_type: "norm-cube"
+      init_center: [0.0, 0.0, 0.0]
+      conf_type: 1
+      conf_init_val: 0.0
+      add_k: 3
+      add_sample_k: 10
+    background:
+      use_bkg_feat: true
+      type: 1
+      load_path:
+      learnable: false
+      init_type: "ones"
+      render_init_scale: 1.1
+      albedo_init_scale: 1.1
+      seq_len: 1
+    point_feats:
+      type: "learnable"
+      load_path:
+      dim: 64
+      factor: 1.0
+      use_inv: true
+      use_ink: false
+      use_inq: false
+  models:
+    out_fuse_type: 1
+    use_renderer: true
+    use_albedo: true
+    predict_rgb_in_log_space: false
+    predict_raw_in_log_space: true
+    include_loss_in_pred_space: true
+    include_loss_in_original_space: false
+    weight_loss_in_pred_space: 1.0
+    weight_loss_render_in_original_space: 0.0
+    weight_loss_albedo_in_original_space: 0.0
+    predict_in_log_space_eps: "1e-03"
+    rgb_loss_weight: 8.0
+    include_rgb_loss: true
+    include_albedo_loss: true
+    last_act: "none"
+    normalize_topk_attn: true
+    sftmax_temp: 1.0
+    transformer:
+      d_model: 256
+      d_out: 256
+      k_type: 1
+      q_type: 1
+      v_type: 1
+      use_double_value_MLP: true
+      embed:
+        share_embed: false
+        k_L: [6, 6, 6]
+        q_L: [6]
+        v_L: [6, 6]
+        dropout: 0.0
+        temperature: 1.0
+        pe_factor: 2.0
+        pe_mult_factor: 1.0
+        pe_type: "none"
+        key:
+          d_ff: 256
+          d_ff_out: 256
+          n_ff_layer: 5
+          ff_last_act: "none"
+          norm: "layernorm"
+          dropout_ff: 0.0
+          residual_ff: false
+          skip_layers: []
+          half_layers: []
+        query:
+          d_ff: 256
+          d_ff_out: 256
+          n_ff_layer: 5
+          ff_last_act: "none"
+          norm: "layernorm"
+          dropout_ff: 0.0
+          residual_ff: false
+          skip_layers: []
+          half_layers: []
+        value:
+          d_ff: 256
+          d_ff_out: 32
+          n_ff_layer: 8
+          ff_last_act: "none"
+          norm: "none"
+          dropout_ff: 0.0
+          residual_ff: false
+          half_layers: []
+        d_ff: 256
+        d_ff_out: 256
+        n_ff_layer: 5
+        ff_act: "relu"
+        ff_last_act: "none"
+        norm: "layernorm"
+        dropout_ff: 0.0
+        residual_ff: false
+      block:
+        n_head: 1
+        n_block: 1
+        score_act: "relu"
+        k_act: "none"
+        q_act: "none"
+        transform_kq: true
+        temperature: 1.0
+        dropout_attn: 0.0
+        dropout_ff: 0.0
+        residual_attn: true
+        residual_ff: true
+        d_ff: 256
+        n_ff_layer: 2
+        ff_act: "relu"
+        ff_last_act: "none"
+        norm: "layernorm"
+    renderer:
+      generator:
+        type: "snp-small-unet"
+        snp_small_unet:
+          bilinear: false
+          single: true
+          last_act: "none"
+          channel_factor: 1
+    albedo:
+      generator:
+        type: "snp-small-unet"
+        snp_small_unet:
+          bilinear: false
+          single: true
+          last_act: "none"
+          channel_factor: 1
+      features:
+        UNet_ratio: 0.5
+        Emb_value_MLP_inp_ratio: 0.5
+        Emb_value_MLP_out_ratio: 0.5
+    supervision_scaler:
+      use: true
+      size: -1
+      initial_value: 0.85
+      apply_interval_start: 0
+      apply_interval_end: 250000
+      apply_interval_length: -1
+  training:
+    GT_albedo_preprocessing: ["scale_supervision_fg", "clamp", "normalize", "white_bg"]
+    loss_func_preprocessing: []
+    steps: 250000
+    score_step: 250001
+    bkg_step: 250001
+    prune_steps: 500
+    prune_start: 10000
+    prune_thresh: -0.0
+    select_k_factor: -1
+    sample_k_factor: -1
+    add_steps: 1000
+    add_start: 20000
+    add_num: 1000
+    add_num_list: []
+    add_steps_list: []
+    albedo_space_carving_loss:
+      use: true
+      num_samples: 10
+      iters: [[0, 250000]]
+    fix_keys: []
+    render_losses:
+      mse: 1.0
+      lpips: 0.01
+    albedo_losses:
+      mse: 1.0
+    lr:
+      lr_factor: 1.0
+      transformer:
+        type: "cosine-hlfperiod"
+        base_lr: 0.000225
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+      points:
+        type: "cosine"
+        factor: 1
+        warmup: 0
+        weight_decay: 0
+      bkg_feats:
+        type: "none"
+        base_lr: 0.0
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+      points_conf_scores:
+        type: "cosine-hlfperiod"
+        base_lr: 0.001
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+      feats:
+        type: "cosine-hlfperiod"
+        base_lr: 0.00075
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+      generator:
+        type: "cosine-hlfperiod"
+        base_lr: 7.5e-05
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+      albedo:
+        type: "cosine-hlfperiod"
+        base_lr: 7.5e-05
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+      supervision_scaler:
+        type: "cosine-hlfperiod"
+        base_lr: 2.5e-06
+        factor: 1
+        warmup: 10000
+        weight_decay: 0
+  eval:
+    dataset:
+      extract_patch: false
+      num_workers: 0
+    step: 1000
+    max_height: 50
+    max_width: 50
+  test:
+    load_path:
+    max_height: 50
+    max_width: 50
+    datasets:
+    - extract_patch: false
+      num_workers: 0
+      render_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+      albedo_GT_preprocessing: ["log+eps", "normalize", "white_bg"]
+      render_pred_preprocessing: []
+      albedo_pred_preprocessing: []
+      render_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      albedo_GT_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      render_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]
+      albedo_pred_postprocessing: ["inv_normalize", "exp-eps", "tone_map", "clamp"]

@@ -1,0 +1,44 @@
+### Compiled / build artifacts
+*.so
+*.o
+*.a
+*.pyc
+*.pyo
+**/__pycache__
+build/
+dist/
+*.egg-info/
+
+### Python environments & tool caches
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+### Editor / OS
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+### Data and outputs
+data/nerf_synthetic/
+data/tanks_temples/
+data/mipnerf360/
+experiments/
+saved_weights/
+
+### Checkpoints and large media
+# vgg.pth is the small LPIPS linear head and IS tracked.
+*.pth
+!vgg.pth
+*.pt
+*.mp4
+*.tar
+*.tar.gz
+*.npy
+!color_point_features/*.npy
