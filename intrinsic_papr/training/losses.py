@@ -204,8 +204,11 @@ def calculate_training_loss(
         (result.render_original_space, models_config.weight_loss_render_in_original_space),
         (result.albedo_pred_space, models_config.weight_loss_in_pred_space),
         (result.albedo_original_space, models_config.weight_loss_albedo_in_original_space),
-        (result.albedo_pred_space_cIMLE, 1.0),
-        (result.albedo_original_space_cIMLE, 1.0),
+        (result.albedo_pred_space_cIMLE, models_config.weight_loss_in_pred_space),
+        (
+            result.albedo_original_space_cIMLE,
+            models_config.weight_loss_albedo_in_original_space,
+        ),
     )
     for loss, weight in weighted_terms:
         if loss is not None:

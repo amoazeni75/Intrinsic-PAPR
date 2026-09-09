@@ -289,8 +289,6 @@ scene_1:
     max_width: 50
   test:
     load_path:
-    max_height: 50
-    max_width: 50
     datasets:
     - extract_patch: false
       num_workers: 0
