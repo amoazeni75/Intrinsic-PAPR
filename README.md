@@ -331,8 +331,6 @@ The full set of `--test_action` values is:
 | `transfer_albedo` / `transfer_shading` | copy the source region's albedo or shading features onto the target region | a source and target region |
 | `freeform_transfer_albedo` / `freeform_transfer_shading` | the same, with the regions given as stroke files | the stroke flags above |
 | `change_brightness` | scale the dominant shading direction of every point | `--shading_intensity`, or `--intensity_sweep` for a range |
-| `interpolate_albedo` | blend the albedo features of two or more points into a region | `--interpolate_colors_indices`, `--interpolate_colors_name` |
-| `TSNE` | a t-SNE plot of the point features | `--TSEN_frames` |
 
 The error metrics for a transfer are computed by `tools/calculate_transfer_losses.py`
 (and `tools/calculate_transfer_losses_multi_samples.py` for the multi-sample case).

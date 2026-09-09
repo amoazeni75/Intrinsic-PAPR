@@ -9,12 +9,11 @@ import matplotlib
 import numpy as np
 import torch
 
+# plots.py imports pyplot, so the backend must be headless before it is loaded
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from sklearn.decomposition import PCA
 from PIL import Image
-from sklearn.manifold import TSNE
 
 from intrinsic_papr.data.rays import find_proj_coord, get_rays
 from intrinsic_papr.data.pipeline import run_image_pipeline, write_a_text_on_image
@@ -182,17 +181,8 @@ def get_name_to_save(
             ),
         )
     if scene_manager.args.test_action == "change_brightness":
-        extra_info += "{}-intensity-{:.4f}".format(
-            (
-                "col"
-                if scene_manager.args.test_action == "interpolate_albedo"
-                else "shd"
-            ),
-            (
-                scene_manager.args.color_intensity
-                if scene_manager.args.test_action == "interpolate_albedo"
-                else scene_manager.args.shading_intensity
-            ),
+        extra_info += "shd-intensity-{:.4f}".format(
+            scene_manager.args.shading_intensity
         )
 
     if scene_manager.args.test_action == "change_brightness":
@@ -201,25 +191,6 @@ def get_name_to_save(
         else:
             extra_info += "-whole-image"
 
-    if scene_manager.args.test_action == "interpolate_albedo":
-        color_names = scene_manager.args.interpolate_colors_name.split(",")
-        color_indices = [
-            int(color_index)
-            for color_index in scene_manager.args.interpolate_colors_indices.split(",")
-        ]
-        # with two colours and no explicit split the run sweeps a range, so
-        # there is no single percentage to name
-        color_percentages = scene_manager.args.interpolate_colors_percentage
-        for i, color_name in enumerate(color_names):
-            extra_info += "-{}-{}-{}".format(
-                color_name,
-                color_indices[i],
-                "sweep" if color_percentages is None else float(color_percentages[i]),
-            )
-        extra_info += "-use-pca" if scene_manager.args.use_pca_for_interpolation else ""
-        extra_info += "-col-intensity-{}-shd-intensity-{}".format(
-            scene_manager.args.color_intensity, scene_manager.args.shading_intensity
-        )
     if (
         not scene_manager.args.test_action == "change_brightness"
         and selected_source_points_index is not None
@@ -598,7 +569,7 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
 
                 selected_points_att[
                     :, height_start:height_end, width_start:width_end, :, :
-                ] = scene_manager.model.top_k_att_TSNE
+                ] = scene_manager.model.top_k_attn
     return FrameEvaluation(
         feature_map=feature_map,
         attn=attn,
@@ -757,116 +728,6 @@ def render_single_frame(
         depth_map=depth_map,
         camera_pose_np=camera_pose_np,
     )
-
-
-def PCA_on_features(features):
-    pca = PCA(n_components=features.shape[-1])
-    mean_features = np.mean(features.detach().cpu().numpy(), axis=0)
-    centered_original_features = features.detach().cpu().numpy() - mean_features
-    pca.fit(centered_original_features)
-
-    print("PCA eigen values:", pca.explained_variance_ratio_)
-    print("PCA eigen values sum:", np.sum(pca.explained_variance_ratio_))
-
-    projected_features = pca.transform(centered_original_features)
-
-    return pca, projected_features, mean_features
-
-
-def interpolate_albedo(args, scene_manager):
-
-    color_indices = [
-        int(color_index) for color_index in args.interpolate_colors_indices.split(",")
-    ]
-    if args.interpolate_colors_percentage is not None:
-        color_percentage = [
-            float(percentage) / 100.0
-            for percentage in args.interpolate_colors_percentage
-        ]
-    else:
-        color_percentage = None
-    if len(color_indices) == 2 and color_percentage is None:
-        # with exactly two colours and no explicit split, sweep between them
-        factors = [0, 0.25, 0.5, 0.75, 1]
-    elif color_percentage is None:
-        raise ValueError(
-            "--interpolate_colors_percentage is required unless "
-            "--interpolate_colors_indices names exactly two colours"
-        )
-    else:
-        factors = [color_percentage]
-
-    target_area_points_idx = []
-    for area_idx in scene_manager.target_area_indices:
-        target_area_points_idx.extend(
-            scene_manager.target_area_indices[area_idx]
-        )
-    # NOTE: this size comes from the transformer embedding, i.e. it describes the
-    # transformer-facing feature split, not the raw stored point features.
-    shading_feat_size = (
-        scene_manager.model.transformer.embed.dim_point_feat_MLP_1_shading
-    )  # not always the albedo_feat_size and shading_feat_size are the same
-
-    original_point_features = scene_manager.model.pc_feats.clone()
-    original_albedo_features = original_point_features[:, shading_feat_size:]
-
-    # we need to do PCA on the albedo features
-    if scene_manager.args.use_pca_for_interpolation:
-        albedo_pca, projected_albedo_features, mean_original_albedo_features = (
-            PCA_on_features(original_albedo_features)
-        )
-    else:
-        projected_albedo_features = original_albedo_features
-    for factor in factors:
-        if scene_manager.args.use_pca_for_interpolation:
-            new_projected_albedo_features = projected_albedo_features.copy()
-        else:
-            new_projected_albedo_features = (
-                original_albedo_features.detach().cpu().numpy()
-            )
-            projected_albedo_features = original_albedo_features.detach().cpu().numpy()
-        if isinstance(factor, list):
-            new_color_features = (
-                factor[0] * projected_albedo_features[color_indices[0], :]
-            )
-            for i in range(1, len(factor)):
-                new_color_features += (
-                    factor[i] * projected_albedo_features[color_indices[i], :]
-                )
-        else:
-            new_color_features = (
-                factor * projected_albedo_features[color_indices[0], :]
-                + (1 - factor) * projected_albedo_features[color_indices[1], :]
-            )
-        new_color_features *= args.color_intensity
-        new_projected_albedo_features[target_area_points_idx, :] = new_color_features
-
-        if scene_manager.args.use_pca_for_interpolation:
-            new_albedo_features = albedo_pca.inverse_transform(
-                new_projected_albedo_features
-            )
-            new_albedo_features += mean_original_albedo_features
-        else:
-            new_albedo_features = new_projected_albedo_features
-
-        new_points_features = original_point_features.clone()
-        new_points_features[:, shading_feat_size:] = torch.from_numpy(
-            new_albedo_features
-        ).to(scene_manager.device)
-
-        # shading featuer adjustment
-        new_points_features[target_area_points_idx, :shading_feat_size] = (
-            scene_manager.args.shading_intensity
-            * original_point_features[target_area_points_idx, :shading_feat_size]
-        )
-
-        # render results
-        scene_manager.model.pc_feats = torch.nn.Parameter(new_points_features)
-        render_frames(
-            scene_manager=scene_manager,
-            sample_idx=args.interpolate_colors_indices,
-            keep_results=False,
-        )
 
 
 def calculate_albedo_consistency(
@@ -1067,136 +928,6 @@ def change_brightness_shading(
             ).to(scene_manager.device)
             scene_manager.model.pc_feats = torch.nn.Parameter(new_points_features)
             render_frames(scene_manager=scene_manager, sample_idx=0)
-
-
-def collect_unique_point_ids_and_colors(point_index_map, reference_colors_image):
-    """
-    Collect, for every point id that is the top-attention point of at least one pixel,
-    the reference colour of the first pixel it appears in. Point ids that hit any
-    pure-white ([255, 255, 255]) reference pixel are skipped.
-
-    Args:
-    - point_index_map (torch.Tensor): point indices with shape (N, H, W, num_pts).
-    - reference_colors_image (numpy.ndarray): reference colours with shape (H, W, 3).
-
-    Returns:
-    - selected_points_ids (list): List of selected points ids.
-    - selected_points_colors (numpy.ndarray): Array of selected points colors.
-    """
-    # Initialize lists to store selected points ids and colors
-    point_index_map = point_index_map.detach().cpu().numpy().astype(np.int32)
-    selected_points_ids = []
-    selected_points_colors = []
-
-    # Extract dimensions
-    N, H, W, num_pts = point_index_map.shape
-
-    # Reshape the point indices to facilitate vectorized operations
-    flat_point_index_map = point_index_map.reshape(N * H * W, num_pts)
-
-    # Flatten the reference colours to facilitate vectorized operations
-    flat_reference_colors = reference_colors_image.reshape(-1, 3)
-
-    # Get unique ids in the point index map
-    unique_ids = np.unique(flat_point_index_map[:, 0])
-
-    # Find indices where the reference colour is [255, 255, 255]
-    white_indices = np.where(
-        (flat_reference_colors == np.array([255, 255, 255])).all(axis=1)
-    )[0]
-
-    for point_id in unique_ids:
-        if point_id not in selected_points_ids:
-            # Get the pixel indices where this point id is the top-attention point
-            pixel_indices = np.where(flat_point_index_map[:, 0] == point_id)[0]
-            # Skip the id if any of those pixels is white in the reference image
-            if (
-                len(pixel_indices) > 0
-                and len(np.intersect1d(white_indices, pixel_indices)) == 0
-            ):
-                selected_points_ids.append(point_id)
-                # Get the color for the first occurrence of the id
-                selected_points_colors.append(flat_reference_colors[pixel_indices[0]])
-
-    # Convert selected_points_colors to NumPy array
-    selected_points_colors = np.array(selected_points_colors)
-
-    return selected_points_ids, selected_points_colors
-
-
-def generate_TSNE_plot(args, scene_manager):
-
-    shading_feat_size = (
-        scene_manager.model.transformer.embed.dim_point_feat_MLP_1_shading
-    )  # not always the albedo_feat_size and shading_feat_size are the same
-
-    original_point_features = scene_manager.model.pc_feats.clone()
-    original_albedo_features = original_point_features[:, shading_feat_size:]
-
-    selected_points_ids = []
-    selected_points_colors = []
-
-    frames = args.TSEN_frames.split(",")
-    for f in frames:
-        args.render_frame_start_index = int(f)
-        frame_results = render_frames(
-            scene_manager=scene_manager, sample_idx=0, keep_results=True
-        )
-        render_srgb_pred = frame_results["render_srgb_pred"][0]
-        albedo_srgb_pred = frame_results["albedo_srgb_pred"][0]
-        selected_points_index = frame_results["selected_points_index"][0]
-        selected_points_att = frame_results["selected_points_att"][0]
-
-        # we keep the id of the point with highest atten in each selected_points -> (N, H, W, 1)
-        highest_attention_indices = selected_points_att.argmax(
-            dim=-2, keepdim=True
-        ).squeeze(-1)
-        # selected_points_index becomes the id of the point with the highest attention
-        selected_points_index = torch.gather(
-            selected_points_index, dim=-1, index=highest_attention_indices
-        )
-        reference_colors = (
-            albedo_srgb_pred if args.TSNE_reference == "albedo" else render_srgb_pred
-        )
-        this_frame_selected_points_ids, this_frame_selected_points_colors = (
-            collect_unique_point_ids_and_colors(
-                point_index_map=selected_points_index,
-                reference_colors_image=reference_colors,
-            )
-        )
-        # we will add the selected points ids and colors to the global lists if they are not already there
-        for point_id, color in zip(
-            this_frame_selected_points_ids, this_frame_selected_points_colors
-        ):
-            if point_id not in selected_points_ids:
-                selected_points_ids.append(point_id)
-                selected_points_colors.append(color)
-        print("Number of selected points:", len(selected_points_ids))
-        print("Frame:", f)
-
-    albedo_features = original_albedo_features[selected_points_ids, :]
-    print("Number of selected points:", len(selected_points_ids))
-
-    # TSNE plot
-    albedo_features = albedo_features.detach().cpu().numpy()
-    tsne = TSNE(n_components=2, random_state=0)
-    albedo_features_tsne = tsne.fit_transform(albedo_features)
-
-    plt.figure(figsize=(10, 10))
-    # for each point we have its color
-    for i in range(len(selected_points_colors)):
-        plt.scatter(
-            albedo_features_tsne[i, 0],
-            albedo_features_tsne[i, 1],
-            color=(selected_points_colors[i] / 255).tolist(),
-        )
-    # save
-    tsne_path = os.path.join(
-        scene_manager.test_log_dir,
-        f"TSNE_plot_views_{args.TSEN_frames.replace(',', '_')}_refrence_{args.TSNE_reference}_points_{len(selected_points_colors)}.png",
-    )
-    plt.savefig(tsne_path)
-    print("Saved image: ", tsne_path)
 
 
 def get_frames_and_camera_poses(scene_manager):
@@ -1567,14 +1298,6 @@ def do_action_change_brightness(args, scene_manager):
     change_brightness_shading(args=args, scene_manager=scene_manager)
 
 
-def do_action_interpolate_albedo(args, scene_manager):
-    interpolate_albedo(args=args, scene_manager=scene_manager)
-
-
-def do_action_tsne(args, scene_manager):
-    generate_TSNE_plot(args=args, scene_manager=scene_manager)
-
-
 def do_action_albedo_consistency(args, scene_manager):
     calculate_albedo_consistency(args=args, scene_manager=scene_manager)
 
@@ -1588,8 +1311,6 @@ TEST_ACTIONS = {
     "freeform_transfer_albedo": do_action_transfer_albedo_shading,
     "freeform_transfer_shading": do_action_transfer_albedo_shading,
     "change_brightness": do_action_change_brightness,
-    "interpolate_albedo": do_action_interpolate_albedo,
-    "TSNE": do_action_tsne,
     "calculate_albedo_consistency": do_action_albedo_consistency,
 }
 
@@ -1600,7 +1321,6 @@ FREEFORM_ACTIONS = (
     "freeform_transfer_albedo",
     "freeform_transfer_shading",
     "change_brightness",
-    "interpolate_albedo",
     "calculate_albedo_consistency",
 )
 

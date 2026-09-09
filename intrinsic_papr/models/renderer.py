@@ -815,7 +815,7 @@ class VolumetricBank(nn.Module):
                 topk_attn = attn[..., :num_pts, :]
                 if self.scene_manager.scene_config.models.normalize_topk_attn:
                     topk_attn = topk_attn / torch.sum(topk_attn, dim=3, keepdim=True)
-                self.top_k_att_TSNE = topk_attn
+                self.top_k_attn = topk_attn
                 fused_features = torch.sum(
                     embedv * topk_attn, dim=3, keepdim=True
                 )  # (N, H, W, 1, C)

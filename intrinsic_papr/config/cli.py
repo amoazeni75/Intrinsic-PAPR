@@ -95,8 +95,6 @@ def parse_args(config):
             "freeform_transfer_shading",
             "render",
             "change_brightness",
-            "interpolate_albedo",
-            "TSNE",
             "calculate_albedo_consistency",
         ],
         help="The action to perform",
@@ -245,20 +243,6 @@ def parse_args(config):
         default=None,
     )
     parser.add_argument(
-        "--interpolate_colors_name",
-        type=str,
-        default=None,
-    )
-    parser.add_argument(
-        "--interpolate_colors_indices",
-        type=str,
-        default=None,
-    )
-    parser.add_argument(
-        "--use_pca_for_interpolation",
-        action="store_true",
-    )
-    parser.add_argument(
         "--color_intensity",
         type=float,
         default=1.0,
@@ -277,23 +261,7 @@ def parse_args(config):
     parser.add_argument("--intensity_start_range", type=float, default=0.5)
     parser.add_argument("--intensity_end_range", type=float, default=1.5)
     parser.add_argument("--intensity_num_steps", type=int, default=20)
-    parser.add_argument(
-        "--interpolate_colors_percentage",
-        type=float,
-        nargs="+",
-        default=None,
-    )
 
-    parser.add_argument(
-        "--TSNE_reference",
-        type=str,
-        default=None,
-    )
-    parser.add_argument(
-        "--TSEN_frames",
-        type=str,
-        default=None,
-    )
     parser.add_argument(
         "--include_metrics_in_name",
         action="store_true",

@@ -261,7 +261,7 @@ class SceneManager:
         if self.args.stage == "test":
             assert (
                 self.args.test_action is not None
-            ), "Test action must be chosen from: (transfer_albedo, transfer_shading, render, PCA, change_brightness, interpolate_albedo, TSNE, calculate_albedo_consistency)"
+            ), "Test action must be chosen from: (transfer_albedo, transfer_shading, freeform_transfer_albedo, freeform_transfer_shading, render, change_brightness, calculate_albedo_consistency)"
 
             assert (
                 self.args.render_frame_type is not None
@@ -421,7 +421,6 @@ class SceneManager:
                 "transfer_shading",
                 "freeform_transfer_albedo",
                 "freeform_transfer_shading",
-                "interpolate_albedo",
             ]
             and self.args.use_points_features
         ) or self.args.test_action == "calculate_albedo_consistency":
