@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <meta name="title" content="Intrinsic PAPR: Tackling Misattribution in 3D Intrinsic Decomposition via Proximity Attention Point Rendering">
+  <meta name="description" content="ECCV 2026. Volume rendering misattributes appearance to the wrong 3D points. Intrinsic PAPR uses proximity attention for per-point albedo and shading.">
+  <meta name="keywords" content="intrinsic decomposition, inverse rendering, point-based rendering, PAPR, albedo, shading, ECCV 2026, misattribution">
+  <meta name="author" content="Alireza Moazeni, Shichong Peng, Yanshu Zhang, Chirag Vashist, Ke Li">
+  <meta name="robots" content="index, follow">
+
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="APEX Lab, Simon Fraser University">
+  <meta property="og:title" content="Intrinsic PAPR — ECCV 2026">
+  <meta property="og:description" content="Tackling misattribution in 3D intrinsic decomposition via proximity attention point rendering.">
+  <meta property="og:url" content="https://amoazeni75.github.io/Intrinsic-PAPR/">
+  <meta property="og:image" content="https://amoazeni75.github.io/Intrinsic-PAPR/static/images/social-preview.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Intrinsic PAPR — ECCV 2026">
+  <meta name="twitter:description" content="Per-point albedo and shading without volumetric misattribution.">
+  <meta name="twitter:image" content="https://amoazeni75.github.io/Intrinsic-PAPR/static/images/social-preview.jpg">
+
+  <meta name="citation_title" content="Intrinsic PAPR: Tackling Misattribution in 3D Intrinsic Decomposition via Proximity Attention Point Rendering">
+  <meta name="citation_author" content="Moazeni, Alireza">
+  <meta name="citation_author" content="Peng, Shichong">
+  <meta name="citation_author" content="Zhang, Yanshu">
+  <meta name="citation_author" content="Vashist, Chirag">
+  <meta name="citation_author" content="Li, Ke">
+  <meta name="citation_publication_date" content="2026">
+  <meta name="citation_conference_title" content="European Conference on Computer Vision (ECCV)">
+  <meta name="citation_pdf_url" content="https://amoazeni75.github.io/Intrinsic-PAPR/static/pdf/main.pdf">
+
+  <title>Intrinsic PAPR | ECCV 2026</title>
+  <link rel="canonical" href="https://amoazeni75.github.io/Intrinsic-PAPR/">
+  <link rel="icon" type="image/x-icon" href="static/images/favicon.ico">
+
+  <link rel="stylesheet" href="static/css/bulma.min.css">
+  <link rel="stylesheet" href="static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="static/css/index.css">
+  <link rel="stylesheet" href="static/css/custom.css?v=11">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script defer src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="static/js/fontawesome.all.min.js"></script>
+  <script defer src="static/js/bulma-carousel.min.js"></script>
+  <script defer src="static/js/index.js"></script>
+</head>
+<body>
+
+<button class="scroll-to-top" onclick="scrollToTop()" title="Scroll to top" aria-label="Scroll to top">
+  <i class="fas fa-chevron-up"></i>
+</button>
+
+<div class="more-works-container">
+  <button class="more-works-btn" onclick="toggleMoreWorks()" title="Related work from our lab">
+    <i class="fas fa-flask"></i>
+    More Works
+    <i class="fas fa-chevron-down dropdown-arrow"></i>
+  </button>
+  <div class="more-works-dropdown" id="moreWorksDropdown">
+    <div class="dropdown-header">
+      <h4>PAPR family from APEX Lab</h4>
+      <button class="close-btn" onclick="toggleMoreWorks()" aria-label="Close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="works-list">
+      <a href="https://zvict.github.io/papr/" class="work-item" target="_blank" rel="noopener">
+        <div class="work-info">
+          <h5>PAPR: Proximity Attention Point Rendering</h5>
+          <p>Attention-based point rendering without volumetric primitives.</p>
+          <span class="work-venue">NeurIPS 2023 Spotlight</span>
+        </div>
+        <i class="fas fa-external-link-alt"></i>
+      </a>
+      <a href="https://niopeng.github.io/PAPR-in-Motion/" class="work-item" target="_blank" rel="noopener">
+        <div class="work-info">
+          <h5>PAPR in Motion</h5>
+          <p>Seamless point-level 3D scene interpolation.</p>
+          <span class="work-venue">CVPR 2024 Highlight</span>
+        </div>
+        <i class="fas fa-external-link-alt"></i>
+      </a>
+      <a href="https://zvict.github.io/p-core/" class="work-item" target="_blank" rel="noopener">
+        <div class="work-info">
+          <h5>P-CORE</h5>
+          <p>Self-supervised surface consistency for point-based neural editing.</p>
+          <span class="work-venue">ECCV 2026</span>
+        </div>
+        <i class="fas fa-external-link-alt"></i>
+      </a>
+    </div>
+  </div>
+</div>
+
+<main id="main-content">
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Intrinsic PAPR: Tackling Misattribution in 3D Intrinsic Decomposition via Proximity Attention Point Rendering</h1>
+          <div class="venue-chip">ECCV 2026</div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><a href="https://amoazeni75.github.io/" target="_blank" rel="noopener">Alireza Moazeni</a><sup>1</sup>,</span>
+            <span class="author-block"><a href="https://sites.google.com/view/niopeng/home" target="_blank" rel="noopener">Shichong Peng</a><sup>1</sup>,</span>
+            <span class="author-block"><a href="https://zvict.github.io/" target="_blank" rel="noopener">Yanshu Zhang</a><sup>1</sup>,</span>
+            <span class="author-block"><a href="https://serchirag.github.io/" target="_blank" rel="noopener">Chirag Vashist</a><sup>1</sup>,</span>
+            <span class="author-block"><a href="https://www.sfu.ca/~keli/" target="_blank" rel="noopener">Ke Li</a><sup>1,2,3</sup></span>
+          </div>
+
+          <div class="is-size-6 publication-authors" style="margin-top:0.4rem">
+            <span class="author-block"><sup>1</sup> APEX Lab, Simon Fraser University</span><br>
+            <span class="author-block"><sup>2</sup> Alberta Machine Intelligence Institute (Amii)</span>
+            <span class="author-block">&nbsp;·&nbsp;<sup>3</sup> Canadian Institute for Advanced Research (CIFAR)</span><br>
+            <span class="author-block" style="font-size:0.92rem;color:var(--text-secondary)">Corresponding: <a href="mailto:sam62@sfu.ca">sam62@sfu.ca</a></span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="static/pdf/main.pdf" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="static/pdf/supp.pdf" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fas fa-file-alt"></i></span>
+                  <span>Supplement</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="static/pdf/poster.pdf" target="_blank" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fas fa-image"></i></span>
+                  <span>Poster</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/2407.00500" target="_blank" rel="noopener" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="ai ai-arxiv"></i></span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://github.com/amoazeni75/Intrinsic-PAPR" target="_blank" rel="noopener" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fab fa-github"></i></span>
+                  <span>Code</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://www.youtube.com/watch?v=l1wdWTg7Scs" target="_blank" rel="noopener" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fab fa-youtube"></i></span>
+                  <span>Video</span>
+                </a>
+              </span>
+            </div>
+          </div>
+
+          <p class="tldr"><b>TL;DR.</b> Volume rendering composites translucent primitives along each ray and supervises only the aggregated colour, so one primitive’s albedo and shading can be wrong while the pixel is right. Adding views does not resolve it, because near-coincident primitives render identically from every direction. Intrinsic PAPR renders an opaque surface with proximity attention and predicts appearance at the ray–surface intersection, making each point identifiable.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body" style="padding-top:0">
+      <div class="teaser-grid">
+        <figure class="teaser-card">
+          <img src="static/images/teaser-decomp.webp" alt="Render, albedo, and shading decomposition">
+          <figcaption>A real scene decomposed into multi-view consistent albedo and shading.</figcaption>
+        </figure>
+        <figure class="teaser-card">
+          <img src="static/images/teaser-truck.webp" alt="Freeform albedo edit on a truck">
+          <figcaption>Freeform albedo editing — rust removal on the Truck scene.</figcaption>
+        </figure>
+        <figure class="teaser-card">
+          <img src="static/images/teaser-shadow-remove.webp" alt="Shadow removal in a garden">
+          <figcaption>Geometry-aware shadow removal in a user-defined 3D region.</figcaption>
+        </figure>
+        <figure class="teaser-card">
+          <img src="static/images/teaser-shadow-add.webp" alt="Shadow addition in a garden">
+          <figcaption>Shadow addition in a user-defined region, preserving scene structure.</figcaption>
+        </figure>
+      </div>
+      <p class="caption has-text-centered">Figure 1. Intrinsic PAPR decomposes a scene into albedo and shading, then supports localized edits that remain consistent across views.</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Video</h2>
+    <div class="video-embed">
+      <iframe
+        src="https://www.youtube-nocookie.com/embed/l1wdWTg7Scs"
+        title="Intrinsic PAPR: Tackling Misattribution in 3D Intrinsic Decomposition (ECCV 2026)"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen></iframe>
+    </div>
+  </div>
+</section>
+
+
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Recent point-based intrinsic decomposition and inverse rendering methods have advanced the modelling of the shading and albedo of 3D scenes. However, we identify a fundamental limitation: these methods suffer from a <i>misattribution issue</i>, where individual primitives learn incorrect appearance features despite producing correct aggregated renderings. We show that the root cause lies in volume rendering, which aggregates translucent primitives along each ray and only supervises the final colour, preventing direct supervision of individual primitive features. To address this, we propose <i>Intrinsic PAPR</i>, a robust intrinsic decomposition framework which leverages Proximity Attention Point Rendering (PAPR) to enable direct per-point supervision. Unlike volume rendering approaches, PAPR eliminates translucent primitives and directly predicts appearance at ray-surface intersections, enabling accurate supervision to the feature of each individual point. Our method incorporates a 2D albedo prior adapted with conditional Implicit Maximum Likelihood Estimation (cIMLE) to handle monocular ambiguities, and employs a space carving loss to ensure multi-view consistency. Extensive evaluations on synthetic and real-world datasets demonstrate that Intrinsic PAPR outperforms point-based inverse rendering, NeRF-based intrinsic decomposition, and diffusion-based PBR methods in novel view synthesis and albedo estimation while resolving the misattribution issue.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">The misattribution problem</h2>
+    <p class="section-lead has-text-justified">
+      Translucent volumetric primitives are supervised only after they are accumulated along a ray. Individual points can therefore store the wrong albedo or shading as long as the sum looks right. Extra training views do not resolve this: coincident primitives remain observationally equivalent from every camera.
+    </p>
+    <img class="paper-figure" src="static/images/motivation.webp" alt="Volume rendering misattribution versus PAPR per-point supervision" loading="lazy">
+    <p class="caption">(a) Volume rendering supervises only the transmittance-weighted sum along a ray, so individual translucent primitives can learn incorrect features whose errors cancel in the aggregate. (b) Proximity attention connects nearby extent-free points into an opaque surface and predicts appearance at the ray–surface intersection, so the photometric residual on a ray backpropagates primarily to the point that dominates it.</p>
+  </div>
+</section>
+
+
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Method</h2>
+    <p class="section-lead has-text-justified">
+      Each point stores position, albedo, shading, and an influence score. Proximity attention aggregates nearby points into albedo and shading maps; RGB is their product. A 2D albedo prior with cIMLE proposes multiple hypotheses per view; a space-carving loss keeps the 3D albedo consistent across cameras.
+    </p>
+    <img class="paper-figure" src="static/images/pipeline.webp" alt="Intrinsic PAPR rendering pipeline" loading="lazy">
+    <p class="caption">Rendering pipeline: ray-dependent embeddings, proximity attention, then albedo and RGB decoding.</p>
+    <img class="paper-figure" src="static/images/space-carving.webp" alt="Space carving loss" loading="lazy" style="margin-top:1.4rem">
+    <p class="caption">Space-carving loss selects cross-view consistent albedo modes from the multi-hypothesis 2D prior.</p>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Results</h2>
+    <div class="metric-row">
+      <div class="metric-chip"><span class="num">35.00</span><span class="lbl">dB NVS · synthetic</span></div>
+      <div class="metric-chip"><span class="num">31.21</span><span class="lbl">dB albedo PSNR</span></div>
+      <div class="metric-chip"><span class="num">29.99</span><span class="lbl">dB NVS · real-world</span></div>
+      <div class="metric-chip"><span class="num">&gt;4×</span><span class="lbl">lower transfer error vs GS-IR</span></div>
+    </div>
+    <p class="caption has-text-centered">
+      Headline numbers from the camera-ready paper. Synthetic NVS and albedo: 35.00 and 31.21 dB, against 24.42 and 22.28 dB for MAIR++. The paper reports more than a 4× reduction in albedo- and shading-transfer error over a leading 3DGS-based method, and the margin holds at every view count from 25 to 200.
+    </p>
+  </div>
+</section>
+
+
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Per-point albedo and shading transfer</h2>
+    <p class="section-lead has-text-justified">
+      If a primitive truly owns its albedo or shading, copying that feature to another region should reproduce the source attribute. Volumetric methods drift; ours stays faithful. Use the arrows to browse additional scenes.
+    </p>
+    <img class="paper-figure" src="static/images/albedo-transfer.webp" alt="Per-point albedo transfer comparison" loading="lazy">
+    <p class="caption">Per-point albedo transfer copies the albedo features of randomly chosen source points onto a target region. Correct attribution means the target reproduces the source albedo independently of shading. Volumetric baselines, supervised only after transmittance-weighted aggregation, show colour drift and high variability across transfers.</p>
+    <img class="paper-figure" src="static/images/shading-transfer.webp" alt="Per-point shading transfer comparison" loading="lazy" style="margin-top:1.2rem">
+    <p class="caption">Per-point shading transfer probes whether illumination is bound to individual primitives and local geometry. The volumetric baselines show inconsistent patterns and artefacts indicative of mixed attribution along the ray, while our transferred shading stays geometry-consistent and tracks the source primitive.</p>
+
+    <div class="video-grid-2" style="margin:1.4rem 0 1.25rem">
+      <figure class="video-card">
+        <video autoplay muted loop playsinline preload="metadata">
+          <source src="static/videos/albedo-transfer-lego-3-to-1-no_lbl.mp4" type="video/mp4">
+        </video>
+        <figcaption>Albedo transfer · Lego</figcaption>
+      </figure>
+      <figure class="video-card">
+        <video autoplay muted loop playsinline preload="metadata">
+          <source src="static/videos/shading-transfer-lego-4-to-1-no_lbl.mp4" type="video/mp4">
+        </video>
+        <figcaption>Shading transfer · Lego</figcaption>
+      </figure>
+    </div>
+
+    <h3 class="title is-5 has-text-centered" style="margin-top:1.5rem">Albedo transfer</h3>
+    <div id="albedo-carousel" class="carousel results-carousel">
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/albedo-transfer-lego-3-to-1.mp4" type="video/mp4">
+        </video>
+        <p>Lego</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/albedo-transfer-hotdog-1-to-4.mp4" type="video/mp4">
+        </video>
+        <p>Hotdog</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/albedo-transfer-materials-6-to-2.mp4" type="video/mp4">
+        </video>
+        <p>Materials</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/albedo-transfer-ficus-5-to-1.mp4" type="video/mp4">
+        </video>
+        <p>Ficus</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/albedo-transfer-chair-6-to-4.mp4" type="video/mp4">
+        </video>
+        <p>Chair</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/albedo-transfer-drum-3-to-2.mp4" type="video/mp4">
+        </video>
+        <p>Drums</p>
+      </div>
+    </div>
+
+    <h3 class="title is-5 has-text-centered" style="margin-top:1.75rem">Shading transfer</h3>
+    <div id="shading-carousel" class="carousel results-carousel">
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/shading-transfer-lego-4-to-1.mp4" type="video/mp4">
+        </video>
+        <p>Lego</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/shading-transfer-hotdog-2-to-4.mp4" type="video/mp4">
+        </video>
+        <p>Hotdog</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/shading-transfer-chair-3-to-1.mp4" type="video/mp4">
+        </video>
+        <p>Chair</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/shading-transfer-ficus-1-to-4.mp4" type="video/mp4">
+        </video>
+        <p>Ficus</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/shading-transfer-drum-3-to-2.mp4" type="video/mp4">
+        </video>
+        <p>Drums</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Editing as a consequence of correct attribution</h2>
+    <p class="section-lead has-text-justified">
+      Precise per-primitive attribution is what makes freeform editing practical. A user paints an arbitrary region on one view; those pixels are mapped to the underlying 3D points and their albedo or shading features are modified, so the edit lives in the 3D representation and stays multi-view consistent, geometry-aware and localized.
+    </p>
+    <div class="app-grid">
+      <img class="paper-figure" src="static/images/app-freeform.webp" alt="Freeform albedo and shading edits" loading="lazy">
+      <img class="paper-figure" src="static/images/app-point-intensity.webp" alt="Point-level shading intensity control" loading="lazy">
+      <img class="paper-figure" src="static/images/app-scene-shading.webp" alt="Scene-level shading manipulation" loading="lazy">
+      <img class="paper-figure" src="static/images/app-shadow.webp" alt="Shadow addition and removal" loading="lazy">
+      <img class="paper-figure wide" src="static/images/app-color.webp" alt="Unseen colour generation from albedo interpolation" loading="lazy">
+    </div>
+    <p class="caption">(a) Freeform region edits. (b) Point-level shading intensity. (c) Scene-level shading scale. (d) Shadow add/remove. (e) Unseen colours via albedo interpolation.</p>
+
+    <h3 class="title is-5 has-text-centered" style="margin-top:2rem">Point-level shading intensity control</h3>
+    <p class="section-lead" style="margin-bottom:1rem">
+      Shading intensity is edited by scaling the shading feature vectors of selected primitives before transferring them to a target region (source in blue, target in red). This modulates contrast locally in a predictable, geometry-consistent way, from subtle brightening to strong darkening.
+    </p>
+    <div id="patch-intensity-carousel" class="carousel results-carousel">
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/patch-shading-intensity-chair-3-to-1.mp4" type="video/mp4">
+        </video>
+        <p>Chair</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/patch-shading-intensity-lego-1-to-5.mp4" type="video/mp4">
+        </video>
+        <p>Lego</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/patch-shading-intensity-hotdog-4-to-2.mp4" type="video/mp4">
+        </video>
+        <p>Hotdog</p>
+      </div>
+    </div>
+
+    <h3 class="title is-5 has-text-centered" style="margin-top:2rem">Scene-level shading intensity control</h3>
+    <p class="section-lead" style="margin-bottom:1rem">
+      Applying a uniform scale to the shading features of all points produces a coherent scene-level adjustment while leaving geometry and albedo unchanged. Decreasing the scale reduces contrast; increasing it enhances contrast across the scene.
+    </p>
+    <div id="scene-intensity-carousel" class="carousel results-carousel">
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/whole-shading-intensity-lego.mp4" type="video/mp4">
+        </video>
+        <p>Lego</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/whole-shading-intensity-hotdog.mp4" type="video/mp4">
+        </video>
+        <p>Hotdog</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/whole-shading-intensity-chair.mp4" type="video/mp4">
+        </video>
+        <p>Chair</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/whole-shading-intensity-materials.mp4" type="video/mp4">
+        </video>
+        <p>Materials</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/whole-shading-intensity-mic.mp4" type="video/mp4">
+        </video>
+        <p>Mic</p>
+      </div>
+      <div class="item">
+        <video autoplay muted loop playsinline controls>
+          <source src="static/videos/whole-shading-intensity-drum.mp4" type="video/mp4">
+        </video>
+        <p>Drums</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <div class="bibtex-header">
+      <h2 class="title">BibTeX</h2>
+      <button class="copy-bibtex-btn" onclick="copyBibTeX()" title="Copy BibTeX to clipboard">
+        <i class="fas fa-copy"></i>
+        <span class="copy-text">Copy</span>
+      </button>
+    </div>
+    <pre id="bibtex-code"><code>@inproceedings{moazeni2026intrinsicpapr,
+  title     = {Intrinsic {PAPR}: Tackling Misattribution in 3D Intrinsic Decomposition
+               via Proximity Attention Point Rendering},
+  author    = {Moazeni, Alireza and Peng, Shichong and Zhang, Yanshu
+               and Vashist, Chirag and Li, Ke},
+  booktitle = {European Conference on Computer Vision ({ECCV})},
+  year      = {2026}
+}</code></pre>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content has-text-centered">
+          <p>
+            Intrinsic PAPR &nbsp;·&nbsp; ECCV 2026 &nbsp;·&nbsp;
+            <a href="https://amoazeni75.github.io/Intrinsic-PAPR/">Project page</a>
+          </p>
+          <p>
+            This page is built from the
+            <a href="https://github.com/eliahuhorwitz/Academic-project-page-template" target="_blank" rel="noopener">Academic Project Page Template</a>
+            (Nerfies family). Source is licensed under
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/" target="_blank">CC BY-SA 4.0</a>.
+            Paper PDFs are the author camera-ready (Meteor), not the publisher typeset chapter.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
