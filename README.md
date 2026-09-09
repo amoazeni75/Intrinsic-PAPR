@@ -332,9 +332,7 @@ The full set of `--test_action` values is:
 | `freeform_transfer_albedo` / `freeform_transfer_shading` | the same, with the regions given as stroke files | the stroke flags above |
 | `change_brightness` | scale the dominant shading direction of every point | `--shading_intensity`, or `--intensity_sweep` for a range |
 | `interpolate_albedo` | blend the albedo features of two or more points into a region | `--interpolate_colors_indices`, `--interpolate_colors_name` |
-| `2D_color_interpolation_with_UNet` | render a grid blending two saved colour features | `--color_1_feature`, `--color_2_feature` |
 | `TSNE` | a t-SNE plot of the point features | `--TSEN_frames` |
-| `render_depth_pcd_for_comparison` | per-view depth maps and point-cloud renders | |
 
 The error metrics for a transfer are computed by `tools/calculate_transfer_losses.py`
 (and `tools/calculate_transfer_losses_multi_samples.py` for the multi-sample case).

@@ -1385,89 +1385,6 @@ def compute_depth_map_from_attention(selected_points, attn, rayo, scene_manager)
     return depth.squeeze().detach().cpu().numpy().astype(np.float32)
 
 
-def save_depth_outputs(depth_map, output_dir):
-    if depth_map is None:
-        return
-    os.makedirs(output_dir, exist_ok=True)
-    depth_map = np.asarray(depth_map, dtype=np.float32)
-    np.save(os.path.join(output_dir, "depth.npy"), depth_map)
-
-    valid_mask = np.isfinite(depth_map) & (depth_map > 1e-8)
-    depth_norm = np.zeros_like(depth_map, dtype=np.float32)
-    if np.any(valid_mask):
-        valid_values = depth_map[valid_mask]
-        depth_min = valid_values.min()
-        depth_range = max(valid_values.max() - depth_min, 1e-8)
-        depth_norm[valid_mask] = (valid_values - depth_min) / depth_range
-    depth_display = depth_norm.copy()
-    depth_display[~valid_mask] = np.nan
-
-    cmap = plt.get_cmap("viridis")
-    if hasattr(cmap, "copy"):
-        cmap = cmap.copy()
-    cmap.set_bad(color="white")
-
-    if np.any(valid_mask):
-        depth_rgba = cmap(depth_display)
-        depth_img = (depth_rgba[..., :3] * 255).astype(np.uint8)
-    else:
-        depth_img = np.full((*depth_map.shape, 3), 255, dtype=np.uint8)
-
-    depth_png_path = os.path.join(output_dir, "depth.png")
-    print("Saving depth image: ", depth_png_path)
-    imageio.imwrite(depth_png_path, depth_img)
-
-
-def save_point_cloud_view(points_np, camera_pose_np, output_path):
-    if points_np is None or camera_pose_np is None:
-        return
-    fig = plt.figure(figsize=(8, 8))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.scatter(
-        points_np[:, 0],
-        points_np[:, 1],
-        points_np[:, 2],
-        s=1.0,
-        c=points_np[:, 2],
-        cmap="viridis",
-        alpha=0.5,
-    )
-    zoom_ratio = 1.0
-    pts_min = points_np.min(axis=0)
-    pts_max = points_np.max(axis=0)
-    center = (pts_min + pts_max) * 0.5
-    span = np.maximum(pts_max - pts_min, 1e-6)
-    half_span = 0.5 * span * zoom_ratio
-    ax.set_xlim(center[0] - half_span[0], center[0] + half_span[0])
-    ax.set_ylim(center[1] - half_span[1], center[1] + half_span[1])
-    ax.set_zlim(center[2] - half_span[2], center[2] + half_span[2])
-
-    camera_origin = camera_pose_np[:3, 3]
-    ax.scatter(
-        camera_origin[0],
-        camera_origin[1],
-        camera_origin[2],
-        c="red",
-        s=30,
-        label="camera",
-    )
-    forward = camera_pose_np[:3, 2]
-    forward_norm = forward / (np.linalg.norm(forward) + 1e-8)
-    elev = np.degrees(
-        np.arctan2(forward_norm[2], np.linalg.norm(forward_norm[:2]) + 1e-8)
-    )
-    azim = np.degrees(np.arctan2(forward_norm[1], forward_norm[0] + 1e-8))
-    ax.view_init(elev=elev, azim=azim)
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.legend(loc="upper right")
-    plt.tight_layout()
-    print("Saving point cloud view: ", output_path)
-    fig.savefig(output_path)
-    plt.close(fig)
-
-
 def transfer_points_features(scene_manager, original_pc_feats, args):
     print("transfering points features")
     print("scene: ", scene_manager.scene_config.index)
@@ -1629,49 +1546,6 @@ def do_action_rendering(scene_manager):
     )
 
 
-def do_action_render_depth_pcd(scene_manager):
-    frames, camera_poses = get_frames_and_camera_poses(scene_manager)
-    frames = list(frames)
-    if not frames:
-        print("No frames provided for render_depth_pcd_for_comparison.")
-        return
-    comparison_root = os.path.join(
-        scene_manager.test_log_dir, "render_depth_pcd_for_comparison"
-    )
-    os.makedirs(comparison_root, exist_ok=True)
-    loss_dictionary = initialize_loss_dictionary()
-    points_np = scene_manager.model.points.detach().cpu().numpy()
-    for frame_idx in frames:
-        view_dir = os.path.join(comparison_root, f"view-{frame_idx:04d}")
-        os.makedirs(view_dir, exist_ok=True)
-        frame = render_single_frame(
-            frame_idx=frame_idx,
-            sample_idx=0,
-            loss_dictionary=loss_dictionary,
-            selected_source_points_index=None,
-            camera_poses=camera_poses,
-            scene_manager=scene_manager,
-        )
-        render_srgb_pred = frame.render_srgb_pred
-        depth_map = frame.depth_map
-        camera_pose_np = frame.camera_pose_np
-        rgb_to_save = (
-            render_srgb_pred
-            if isinstance(render_srgb_pred, np.ndarray)
-            else np.zeros((1, 1, 3), dtype=np.uint8)
-        )
-        imageio.imwrite(
-            os.path.join(view_dir, "render_rgb.png"),
-            rgb_to_save,
-        )
-        save_depth_outputs(depth_map, view_dir)
-        save_point_cloud_view(
-            points_np,
-            camera_pose_np,
-            os.path.join(view_dir, "point_cloud.png"),
-        )
-
-
 def read_pixel_coordinates(file_path):
     """Read a stroke file: one "x,y" integer pixel per line, blank lines ignored."""
     coordinates = []
@@ -1687,107 +1561,6 @@ def read_pixel_coordinates(file_path):
                 )
             coordinates.append([int(value) for value in values])
     return coordinates
-
-
-def do_action_2d_color_interpolation(args, scene_manager):
-    """Sweep two point-feature colours through the renderer and save the resulting grid.
-
-    Each cell renders a flat 10x10 feature patch at one (alpha, beta) blend of the
-    two saved colour features, and takes the centre pixel of the result.
-    """
-    resolution = 10
-    # np load the color featuer 1 and 2
-    color_1 = np.load(args.color_1_feature)
-    color_1 = torch.tensor(color_1).to(scene_manager.device).reshape(1, 1, 1, -1)
-
-    color_2 = np.load(args.color_2_feature)
-    color_2 = torch.tensor(color_2).to(scene_manager.device).reshape(1, 1, 1, -1)
-
-    alpha = np.linspace(0, 1, resolution)
-    beta = np.linspace(0, 1, resolution)
-    alpha_grid, beta_grid = np.meshgrid(alpha, beta)
-
-    interpolated_colors = np.zeros((resolution, resolution, 3))
-    for i in range(resolution):
-        for j in range(resolution):
-            # generate a zero tensor with the shape of [B, 10, 10, 3]
-            feat = (
-                torch.zeros((1, 10, 10, color_1.shape[-1]))
-                .float()
-                .to(scene_manager.device)
-            )
-
-            final_input_feat = (
-                alpha_grid[i, j] * color_1 + beta_grid[i, j] * color_2
-            ).reshape(1, 1, 1, -1)
-
-            final_input_feat = final_input_feat * 1.5
-            # replace all featuers in feat by color 1
-            feat[:, :, :, :] = torch.tensor(final_input_feat).to(scene_manager.device)
-
-            # call the renderer
-            raw_pred = (
-                scene_manager
-                .model.renderer_UNet(feat.squeeze(-2).permute(0, 3, 1, 2))
-                .permute(0, 2, 3, 1)
-                .unsqueeze(-2)
-            )  # (N, H, W, 1, 3)
-
-            # skip the first row, the first column, the last row, and the last column
-            raw_pred = raw_pred[:, 1:-1, 1:-1, :, :]
-            # get the average of output and set it for all pixels
-            raw_pred = raw_pred.mean(dim=(1, 2), keepdim=True).repeat(
-                1, 10, 10, 1, 1
-            )
-
-            # save the image
-            srgb_pred = run_image_pipeline(
-                img=raw_pred,
-                pipeline=scene_manager.scene_config.test.datasets[0][
-                    f"render_pred_postprocessing"
-                ],
-                eps=scene_manager.scene_config.models.predict_in_log_space_eps,
-                min_val=(
-                    getattr(
-                        scene_manager.scene_config.dataset,
-                        "min_{}_log".format("render"),
-                        None,
-                    )
-                    if scene_manager.scene_config.models.predict_rgb_in_log_space
-                    or scene_manager.scene_config.models.predict_raw_in_log_space
-                    else 0
-                ),
-                max_val=(
-                    getattr(
-                        scene_manager.scene_config.dataset,
-                        "max_{}_log".format("render"),
-                        None,
-                    )
-                    if scene_manager.scene_config.models.predict_rgb_in_log_space
-                    or scene_manager.scene_config.models.predict_raw_in_log_space
-                    else 1
-                ),
-                white_bg_value=getattr(
-                    scene_manager.scene_config.geoms.background,
-                    "render_init_scale",
-                    None,
-                ),
-                supervision_scaler=None,
-            )
-
-            return_srgb_pred = (
-                srgb_pred.squeeze().detach().cpu().numpy() * 255
-            ).astype(np.uint8)
-
-            interpolated_colors[i, j, :] = return_srgb_pred[5, 5, :]
-
-
-    plt.imshow(interpolated_colors.astype(int))
-    interpolated_colors_path = os.path.join(
-        scene_manager.test_log_dir, "interpolated_colors_UNET.png"
-    )
-    plt.savefig(interpolated_colors_path)
-    print("Saved image: ", interpolated_colors_path)
 
 
 def do_action_change_brightness(args, scene_manager):
@@ -1810,9 +1583,6 @@ def do_action_albedo_consistency(args, scene_manager):
 # (args, scene_manager), so adding an action means adding one row here.
 TEST_ACTIONS = {
     "render": lambda args, manager: do_action_rendering(scene_manager=manager),
-    "render_depth_pcd_for_comparison": lambda args, manager: do_action_render_depth_pcd(
-        scene_manager=manager
-    ),
     "transfer_albedo": do_action_transfer_albedo_shading,
     "transfer_shading": do_action_transfer_albedo_shading,
     "freeform_transfer_albedo": do_action_transfer_albedo_shading,
@@ -1821,7 +1591,6 @@ TEST_ACTIONS = {
     "interpolate_albedo": do_action_interpolate_albedo,
     "TSNE": do_action_tsne,
     "calculate_albedo_consistency": do_action_albedo_consistency,
-    "2D_color_interpolation_with_UNet": do_action_2d_color_interpolation,
 }
 
 # The actions that can take their source and target regions from stroke files.

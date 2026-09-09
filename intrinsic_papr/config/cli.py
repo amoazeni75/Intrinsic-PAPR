@@ -98,8 +98,6 @@ def parse_args(config):
             "interpolate_albedo",
             "TSNE",
             "calculate_albedo_consistency",
-            "2D_color_interpolation_with_UNet",
-            "render_depth_pcd_for_comparison",
         ],
         help="The action to perform",
         default=None,
@@ -209,20 +207,6 @@ def parse_args(config):
         choices=["all", "highest_attention"],
         default="all",
         help="The method to select the points",
-    )
-
-    # 2D color interpolation with UNet
-    parser.add_argument(
-        "--color_1_feature",
-        type=str,
-        default=None,
-        help="The path to the UNet model",
-    )
-    parser.add_argument(
-        "--color_2_feature",
-        type=str,
-        default=None,
-        help="The path to the UNet model",
     )
 
     # render specs
