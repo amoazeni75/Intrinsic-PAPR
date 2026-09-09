@@ -46,7 +46,10 @@ def load_mip360_data(
             "images_<factor> directory to read."
         )
     factor = int(dataset_args.factor)
-    images_dir = f"images_{factor}"
+    # The Mip-NeRF 360 release stores full resolution in images/ and the
+    # downsampled copies in images_2/, images_4/, images_8/, so factor 1 has no
+    # suffix. statistics.py maps the factor to a directory the same way.
+    images_dir = f"images_{factor}" if factor > 1 else "images"
     method = scene_config.dataset.get(
         "{}_albedo_extraction_method".format(split), ""
     )

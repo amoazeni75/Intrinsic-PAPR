@@ -58,7 +58,7 @@ def panel_arrays(scene_config, sources, img_type, gt_pipeline, pred_pipeline):
     return panels
 
 
-def decode_head(scene_manager, decoder, decoder_input, attn, topk, shape):
+def decode_head(scene_manager, decoder, decoder_input, attn, bkg_split, shape):
     """Run one decoder over the feature map and composite the background behind it.
 
     Returns ``(composited, foreground)``, both [N, H, W, C].
@@ -70,7 +70,7 @@ def decode_head(scene_manager, decoder, decoder_input, attn, topk, shape):
         model.bkg_feats is not None
         and scene_manager.step <= scene_manager.scene_config.training.bkg_step
     ):
-        bkg_attn = attn[..., topk:, :]
+        bkg_attn = attn[..., bkg_split:, :]
         background = model.bkg_feats.expand(N, H, W, -1, -1) * bkg_attn
         if scene_manager.scene_config.models.normalize_topk_attn:
             composited = foreground * (1 - bkg_attn) + background
@@ -168,7 +168,13 @@ def eval_step(
     topk = min([num_pts, scene_manager.model.select_k])
     pt_idxs = [topk * i // 5 for i in range(5)]
 
-    selected_points = torch.zeros(1, H, W, topk, 3)
+    # Unbounded scenes carry one extra attention slot per ray, the
+    # background-sphere intersection. It belongs to the point sequence, so the
+    # split between point attention and the learned background sits after it.
+    # Bounded scenes add no slot and every size below is unchanged.
+    num_slots = topk + (1 if scene_manager.model.append_bkg_points else 0)
+
+    selected_points = torch.zeros(1, H, W, num_slots, 3)
 
     bkg_seq_len_attn = 0
     transformer_opt = scene_manager.scene_config.models.transformer
@@ -184,7 +190,9 @@ def eval_step(
     ):
         bkg_seq_len_attn = scene_manager.model.bkg_feats.shape[0]
     feature_map = torch.zeros(N, H, W, 1, feat_dim).to(scene_manager.device)
-    attn = torch.zeros(N, H, W, topk + bkg_seq_len_attn, 1).to(scene_manager.device)
+    attn = torch.zeros(N, H, W, num_slots + bkg_seq_len_attn, 1).to(
+        scene_manager.device
+    )
 
     with torch.no_grad():
         for height_start in range(0, H, scene_manager.scene_config.eval.max_height):
@@ -218,11 +226,11 @@ def eval_step(
                 ] = scene_manager.model.selected_points
 
         bg_attention = np.clip(
-            attn[..., topk:, :].squeeze().detach().cpu().numpy(), 0, 1
+            attn[..., num_slots:, :].squeeze().detach().cpu().numpy(), 0, 1
         )
         bg_mask = (
             (
-                attn[..., topk:, :]
+                attn[..., num_slots:, :]
                 * scene_manager.model.bkg_feats.expand(N, H, W, -1, -1)
             )
             .squeeze()
@@ -246,7 +254,7 @@ def eval_step(
                     scene_manager.model.albedo_model,
                     albedo_input_features.squeeze(-2).permute(0, 3, 1, 2),
                     attn,
-                    topk,
+                    num_slots,
                     image_shape,
                 )
         else:
@@ -259,7 +267,7 @@ def eval_step(
                     scene_manager.model.renderer_UNet,
                     feature_map.squeeze(-2).permute(0, 3, 1, 2),
                     attn,
-                    topk,
+                    num_slots,
                     image_shape,
                 )
         else:

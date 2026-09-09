@@ -243,7 +243,14 @@ def load_meta_data(
     )
 
 
-def find_proj_coord(pc, c2w, W, focal):
+def find_proj_coord(pc, c2w, H, W, focal_x, focal_y):
+    """Project world points to pixel coordinates for one camera.
+
+    The vertical axis uses H and focal_y. Passing W for both, as this used to,
+    is only correct on a square frame with one focal length, which is what every
+    object-centric scene is; Tanks & Temples and Mip-NeRF 360 frames are not
+    square, and there the row coordinate came out shifted by (W - H) / 2.
+    """
     points_cam = (
         np.linalg.inv(c2w) @ np.concatenate([pc, np.ones((pc.shape[0], 1))], axis=-1).T
     )
@@ -254,10 +261,10 @@ def find_proj_coord(pc, c2w, W, focal):
     points_img = points_cam[:, :2] / points_cam[:, 2:]
 
     # Convert points to pixel coordinates
-    points_px = points_img * np.array([W, W]) / (W / focal)
+    points_px = points_img * np.array([focal_x, focal_y])
 
     points_px[:, 0] += W / 2
-    points_px[:, 1] += W / 2
+    points_px[:, 1] += H / 2
     points_px[:, 0] = W - points_px[:, 0]
 
     return points_px

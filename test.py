@@ -44,7 +44,7 @@ def decode_render_and_albedo(
     model,
     feature_map,
     attn,
-    topk,
+    bkg_split,
     rayd,
     albedo_feat_size,
     scene_manager,
@@ -68,13 +68,13 @@ def decode_render_and_albedo(
     with torch.no_grad():
         # albedo
         background_mask = (
-            (attn[..., topk:, :] * model.bkg_feats.expand(N, H, W, -1, -1))
+            (attn[..., bkg_split:, :] * model.bkg_feats.expand(N, H, W, -1, -1))
             .squeeze()
             .detach()
             .cpu()
             .numpy()
         )
-        attention_mask = attn[..., topk:, :].squeeze().detach().cpu().numpy()
+        attention_mask = attn[..., bkg_split:, :].squeeze().detach().cpu().numpy()
         if scene_manager.scene_config.models.use_albedo:
             if scene_manager.scene_config.models.out_fuse_type in [1]:
                 albedo_input_features = extract_features_from_feature_map(
@@ -90,7 +90,7 @@ def decode_render_and_albedo(
                     .unsqueeze(-2)
                 )
                 if model.bkg_feats is not None:
-                    bkg_attn = attn[..., topk:, :]
+                    bkg_attn = attn[..., bkg_split:, :]
                     bkg_feats = model.bkg_feats.expand(N, H, W, -1, -1)
                     if scene_manager.args.render_bg_black:
                         # render the background as black: invert the clamped bkg feats
@@ -114,7 +114,7 @@ def decode_render_and_albedo(
                     .unsqueeze(-2)
                 )  # (N, H, W, 1, 3)
                 if model.bkg_feats is not None:
-                    bkg_attn = attn[..., topk:, :]
+                    bkg_attn = attn[..., bkg_split:, :]
                     bkg_feats = model.bkg_feats.expand(N, H, W, -1, -1)
                     if scene_manager.args.render_bg_black:
                         # render the background as black: invert the clamped bkg feats
@@ -465,7 +465,7 @@ class FrameEvaluation:
     __slots__ = (
         "feature_map",
         "attn",
-        "topk",
+        "bkg_split",
         "selected_points",
         "selected_points_index",
         "selected_points_att",
@@ -535,9 +535,15 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
     topk = min([num_pts, scene_manager.model.select_k])
     pt_idxs = [topk * i // 5 for i in range(5)]
 
-    selected_points = torch.zeros(1, H, W, topk, 3)
-    selected_points_att = torch.zeros(1, H, W, topk, 1)
-    selected_points_index = torch.zeros(1, H, W, topk)
+    # Unbounded scenes carry one extra attention slot per ray, the
+    # background-sphere intersection. It belongs to the point sequence, so the
+    # split between point attention and the learned background sits after it.
+    # Bounded scenes add no slot and every size below is unchanged.
+    num_slots = topk + (1 if scene_manager.model.append_bkg_points else 0)
+
+    selected_points = torch.zeros(1, H, W, num_slots, 3)
+    selected_points_att = torch.zeros(1, H, W, num_slots, 1)
+    selected_points_index = torch.zeros(1, H, W, num_slots)
 
     bkg_seq_len_attn = 0
     tx_opt = scene_manager.scene_config.models.transformer
@@ -549,7 +555,9 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
     if scene_manager.model.bkg_feats is not None and scene_manager.model.bkg_type == 1:
         bkg_seq_len_attn = scene_manager.model.bkg_feats.shape[0]
     feature_map = torch.zeros(N, H, W, 1, feat_dim).to(scene_manager.device)
-    attn = torch.zeros(N, H, W, topk + bkg_seq_len_attn, 1).to(scene_manager.device)
+    attn = torch.zeros(N, H, W, num_slots + bkg_seq_len_attn, 1).to(
+        scene_manager.device
+    )
 
     with torch.no_grad():
         for height_start in range(0, H, scene_manager.scene_config.eval.max_height):
@@ -591,7 +599,7 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
     return FrameEvaluation(
         feature_map=feature_map,
         attn=attn,
-        topk=topk,
+        bkg_split=num_slots,
         selected_points=selected_points,
         selected_points_index=selected_points_index,
         selected_points_att=selected_points_att,
@@ -620,6 +628,12 @@ def collect_points_under_strokes(
         )
 
     points = set()
+    # On an unbounded scene every ray carries one extra slot for the
+    # background-sphere intersection, indexed one past the last real point so it
+    # can address its own feature row. It is not a point of the scene and cannot
+    # receive transferred features, so drop it here; passing it on would index
+    # out of bounds. Bounded scenes have no such slot and nothing is dropped.
+    real_point_count = scene_manager.model.points.shape[0]
     for x, y in stroke_pixels:
         if not (0 <= x < W and 0 <= y < H):
             continue
@@ -627,8 +641,20 @@ def collect_points_under_strokes(
             int(index) for index in frame.selected_points_index[0, y, x].cpu().numpy()
         ]
         if selection_method == "highest_attention":
-            pixel_attn = frame.selected_points_att[0, y, x].cpu().numpy()
-            pixel_points = [pixel_points[int(np.argmax(pixel_attn))]]
+            pixel_attn = frame.selected_points_att[0, y, x].cpu().numpy().reshape(-1)
+            candidates = [
+                slot
+                for slot, index in enumerate(pixel_points)
+                if index < real_point_count
+            ]
+            if not candidates:
+                continue
+            # max returns the first maximal element, as np.argmax did.
+            pixel_points = [pixel_points[max(candidates, key=lambda s: pixel_attn[s])]]
+        else:
+            pixel_points = [
+                index for index in pixel_points if index < real_point_count
+            ]
         points.update(pixel_points)
     return points
 
@@ -662,7 +688,7 @@ def render_single_frame(
             model=scene_manager.model,
             feature_map=frame.feature_map,
             attn=frame.attn,
-            topk=frame.topk,
+            bkg_split=frame.bkg_split,
             rayd=rayd,
             albedo_feat_size=scene_manager.model.albedo_UNet_inp_size,
             scene_manager=scene_manager,
@@ -883,8 +909,10 @@ def calculate_albedo_consistency(
         points_pixels = find_proj_coord(
             pc=model_points,
             c2w=c2w,
+            H=scene_manager.eval_dataset.H,
             W=scene_manager.eval_dataset.W,
-            focal=scene_manager.eval_dataset.focal_x,
+            focal_x=scene_manager.eval_dataset.focal_x,
+            focal_y=scene_manager.eval_dataset.focal_y,
         ).astype(int)
 
         # Sample each projected point out of this frame's albedo maps.
@@ -954,17 +982,16 @@ def calculate_albedo_consistency(
             "views, so albedo consistency is undefined. Render more views, or "
             "pick a --source_area_indices region the camera actually sees."
         )
-    pred_rgb_consistency = np.array(pred_rgb_consistency)
-    gt_rgb_consistency = np.array(gt_rgb_consistency)
-    pred_raw_consistency = np.array(pred_raw_consistency)
-    gt_raw_consistency = np.array(gt_raw_consistency)
-
     def print_mean_std(name, data, res_dict):
-        # data is nxf array where n is number of points and f is number of frames
-        # we take the mean across frames for each point and then the mean across points
-        mean = np.mean(np.mean(data, axis=1)) / 255.0
-        # we take the std across frames for each point and then the mean across points
-        std = np.mean(np.std(data, axis=1)) / 255.0
+        # data is a list with one entry per point, holding that point's
+        # frame-to-frame differences. A point that leaves the frame in some views
+        # contributes a shorter entry than one visible throughout, so the lists
+        # are ragged and cannot be stacked into a rectangular array. Taking the
+        # per-point statistic first and averaging over points is what the
+        # rectangular version computed, so scenes whose points are all visible
+        # everywhere give exactly the same numbers as before.
+        mean = np.mean([np.mean(point) for point in data]) / 255.0
+        std = np.mean([np.std(point) for point in data]) / 255.0
         print(f"{name} mean: {mean:.4f}, std: {std:.4f}")
         res_dict[name] = {"mean": mean, "std": std}
 
@@ -1543,8 +1570,10 @@ def do_action_transfer_albedo_shading(args, scene_manager):
                     .cpu()
                     .numpy(),
                     c2w=c2w,
+                    H=scene_manager.eval_dataset.H,
                     W=scene_manager.eval_dataset.W,
-                    focal=scene_manager.eval_dataset.focal_x,
+                    focal_x=scene_manager.eval_dataset.focal_x,
+                    focal_y=scene_manager.eval_dataset.focal_y,
                 )
                 points_pixels_source = find_proj_coord(
                     pc=scene_manager.model.points[selected_source_points_index]
@@ -1552,8 +1581,10 @@ def do_action_transfer_albedo_shading(args, scene_manager):
                     .cpu()
                     .numpy(),
                     c2w=c2w,
+                    H=scene_manager.eval_dataset.H,
                     W=scene_manager.eval_dataset.W,
-                    focal=scene_manager.eval_dataset.focal_x,
+                    focal_x=scene_manager.eval_dataset.focal_x,
+                    focal_y=scene_manager.eval_dataset.focal_y,
                 )
                 # create an image of size WxH . all pixels are 0 and the points pixels are 1
                 points_pixels_image = np.zeros(
@@ -1833,7 +1864,14 @@ if __name__ == "__main__":
         for dataset in config[scene_key]["test"]["datasets"]:
             dataset["path"] = args.test_dataset_path
     for dataset in config[scene_key]["test"]["datasets"]:
-        config[scene_key]["dataset"].update(dataset)
+        # A key left blank in a test block means "not specified here", so it must
+        # not overwrite what the scene dataset block or the command line already
+        # set. mipnerf360.yml leaves `factor:` blank, and the generated
+        # --scene_N.test.datasets.* flags cannot reach into this list, so without
+        # this filter a Mip-NeRF 360 scene can never be tested.
+        config[scene_key]["dataset"].update(
+            {key: value for key, value in dataset.items() if value is not None}
+        )
     scene_idx = int(scene_key.split("_")[1])
 
     scene_manager = SceneManager(

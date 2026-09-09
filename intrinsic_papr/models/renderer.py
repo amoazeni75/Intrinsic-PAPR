@@ -283,9 +283,12 @@ class VolumetricBank(nn.Module):
         )
         self.transformer = transformer
 
-        self.seql_k = self.select_k
-        self.seql_v = self.select_k
-        self.seql_q = self.select_k
+        # Unbounded scenes append one background-sphere slot per ray to the
+        # selected-point sequence, so key/query/value carry select_k + 1 entries.
+        extra_bkg_slot = 1 if self.append_bkg_points else 0
+        self.seql_k = self.select_k + extra_bkg_slot
+        self.seql_v = self.select_k + extra_bkg_slot
+        self.seql_q = self.select_k + extra_bkg_slot
         if self.scene_manager.scene_config.models.transformer.q_type in [1]:
             self.seql_q = 1
 

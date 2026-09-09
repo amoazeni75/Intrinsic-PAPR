@@ -79,6 +79,20 @@ def get_render_poses(scene="Barn"):
         "maneki": 40.0,
         "lego": 10.0,
     }
+    # tanks_and_temples.yml ships scene_1.index "truck" while this table is keyed
+    # "Truck", so match without regard to case, and say which scenes are covered
+    # instead of raising a bare KeyError for one that is not.
+    by_lower = {name.lower(): name for name in parameters}
+    if scene.lower() not in by_lower:
+        raise ValueError(
+            "No fly-through camera path is defined for scene '{}'. "
+            "--render_frame_type onfly covers only: {}. Use "
+            "--render_frame_type all, custom or range for any other scene.".format(
+                scene, ", ".join(sorted(parameters))
+            )
+        )
+    scene = by_lower[scene.lower()]
+
     a, b, phi = parameters[scene]
     a *= factors[scene]
     b *= factors[scene]
