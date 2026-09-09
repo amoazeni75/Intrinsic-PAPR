@@ -200,7 +200,13 @@ scene_1:
       apply_interval_end: 250000
       apply_interval_length: -1
   training:
-    GT_albedo_preprocessing: ["scale_supervision_fg", "clamp", "normalize", "white_bg"]
+    # Applied at training time to the albedo pseudo-ground-truth, on top of
+    # dataset.albedo_GT_preprocessing which already took it to normalised log
+    # space. It scales by the learnable per-view scalar, clamps back into the
+    # valid [0, 1] range that scaling can leave, then composites the background.
+    # It must not normalise again: the tensor is already normalised, and the
+    # bounds available here are log-space ones.
+    GT_albedo_preprocessing: ["scale_supervision_fg", "clamp", "white_bg"]
     loss_func_preprocessing: []
     steps: 250000
     score_step: 250001

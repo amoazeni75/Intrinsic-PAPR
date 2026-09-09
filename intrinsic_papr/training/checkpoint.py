@@ -110,6 +110,20 @@ def save(model):
     )
 
 
+def _rebind_optimizers(model):
+    """Rebuild the optimisers over the parameters that exist right now.
+
+    `copy_state_dict` re-creates points, points_conf_scores and pc_feats as new
+    Parameters, because the point count changes as training prunes and grows the
+    cloud. Any optimiser built before that call keeps a reference to the old
+    tensors, so its updates never reach the model and those parameters silently
+    stop learning for the rest of the run. Rebuilding here rebinds them; the
+    saved optimiser state is restored immediately afterwards, so momentum and
+    schedules still carry over.
+    """
+    model.init_optimizers(total_steps=0)
+
+
 def load(model, manager, checkpoint_dir, specific_checkpoint=None, stage="train"):
     """Restore a checkpoint and return the step it was saved at, or 0 if there is none."""
     # rfind returns -1 for a bare filename, and s[-1:] is its last character, so
@@ -149,6 +163,7 @@ def load(model, manager, checkpoint_dir, specific_checkpoint=None, stage="train"
 
     # optimisers and schedulers only exist while training
     if stage == "train":
+        _rebind_optimizers(model)
         _state_dicts(
             model.optimizers, "optimizers", checkpoint_dict["optimizers_state_dict"]
         )

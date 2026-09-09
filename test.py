@@ -35,8 +35,11 @@ except ImportError:
     from skimage.metrics import structural_similarity
 
     def compare_ssim(gt, img, win_size, channel_axis=2):
+        # The images compared here are in [0, 1]. Without data_range, scikit-image
+        # infers 2.0 from the float dtype, which makes the SSIM stabilising
+        # constants four times too large and reports a slightly inflated score.
         return structural_similarity(
-            gt, img, win_size=win_size, channel_axis=channel_axis
+            gt, img, win_size=win_size, channel_axis=channel_axis, data_range=1.0
         )
 
 

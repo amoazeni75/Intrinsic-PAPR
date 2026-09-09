@@ -115,12 +115,12 @@ def train_step(batch, scene_manager):
                 scene_manager.scene_config.geoms.background, "albedo_init_scale"
             ),
             supervision_scaler=softplus_activation(albedo_supervision_scaler),
-            clamp_min=getattr(
-                scene_manager.scene_config.dataset, "min_{}_log".format("albedo"), None
-            ),
-            clamp_max=getattr(
-                scene_manager.scene_config.dataset, "max_{}_log".format("albedo"), None
-            ),
+            # The tensor reaching here is already normalised to [0, 1], so the
+            # clamp guards that range: the learnable scaler can push the target
+            # above 1. Clamping with the log-space bounds instead, as this used
+            # to, collapsed the target towards a constant.
+            clamp_min=0.0,
+            clamp_max=1.0,
             alpha_channel=expanded_alpha_channel,
         )
 
