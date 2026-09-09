@@ -424,8 +424,6 @@ class FrameOutputs:
         "selected_points",
         "selected_points_index",
         "selected_points_att",
-        "depth_map",
-        "camera_pose_np",
     )
 
     def __init__(self, **fields):
@@ -443,9 +441,7 @@ class FrameEvaluation:
         "selected_points",
         "selected_points_index",
         "selected_points_att",
-        "rayo",
         "rayd",
-        "c2w",
         "shape",
         "render_gt",
         "albedo_gt",
@@ -464,7 +460,6 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
     """
     if camera_poses is not None:
         camera_pose = camera_poses[frame_idx].unsqueeze(0)  # (1, 4, 4)
-        idx = torch.tensor([frame_idx])
         test_render_GT = None
         test_albedo_GT = None
         rayo, rayd = get_rays(
@@ -475,12 +470,10 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
             camera_pose,
             coord=scene_manager.eval_dataset.dataset_args.rays.cam_world,
         )
-        c2w = camera_pose.squeeze(0)  # (4, 4)
     else:
-        _idx, _, _test_render_GT, _test_albedo_GT, _rayd, _rayo, _ = (
+        _, _, _test_render_GT, _test_albedo_GT, _rayd, _rayo, _ = (
             scene_manager.eval_dataset[frame_idx]
         )
-        idx = torch.tensor([_idx])
         if _test_render_GT is not None:
             test_render_GT = _test_render_GT.unsqueeze(0)
         else:
@@ -492,14 +485,11 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
         rayd = _rayd.unsqueeze(0)
         rayo = _rayo.unsqueeze(0)
 
-        c2w = scene_manager.eval_dataset.get_c2w(idx.squeeze())
-
     N, H, W, _ = rayd.shape
     num_pts, _ = scene_manager.model.points.shape
 
     rayo = rayo.to(scene_manager.device)
     rayd = rayd.to(scene_manager.device)
-    c2w = c2w.to(scene_manager.device)
 
     if test_render_GT is not None:
         test_render_GT = test_render_GT.to(scene_manager.device)
@@ -577,9 +567,7 @@ def evaluate_frame(frame_idx, camera_poses, scene_manager):
         selected_points=selected_points,
         selected_points_index=selected_points_index,
         selected_points_att=selected_points_att,
-        rayo=rayo,
         rayd=rayd,
-        c2w=c2w,
         shape=(N, H, W),
         render_gt=test_render_GT,
         albedo_gt=test_albedo_GT,
@@ -643,8 +631,7 @@ def render_single_frame(
 ):
     """Render one frame, save its images, and record its metrics."""
     frame = evaluate_frame(frame_idx, camera_poses, scene_manager)
-    rayo, rayd = frame.rayo, frame.rayd
-    c2w = frame.c2w
+    rayd = frame.rayd
     test_render_GT, test_albedo_GT = frame.render_gt, frame.albedo_gt
     selected_points = frame.selected_points
     selected_points_index = frame.selected_points_index
@@ -705,14 +692,6 @@ def render_single_frame(
             -1,
             -1,
         )
-    depth_map = compute_depth_map_from_attention(
-        selected_points=selected_points,
-        attn=frame.attn,
-        rayo=rayo,
-        scene_manager=scene_manager,
-    )
-    camera_pose_np = c2w.detach().cpu().numpy()
-
     return FrameOutputs(
         render_srgb_pred=render_srgb_pred,
         render_srgb_gt=render_srgb_gt,
@@ -725,8 +704,6 @@ def render_single_frame(
         selected_points=selected_points,
         selected_points_index=selected_points_index,
         selected_points_att=selected_points_att,
-        depth_map=depth_map,
-        camera_pose_np=camera_pose_np,
     )
 
 
@@ -1040,8 +1017,6 @@ def render_frames(
         "selected_points": [],
         "selected_points_index": [],
         "selected_points_att": [],
-        "depth_maps": [],
-        "camera_poses": [],
         "frames": [],
     }
 
@@ -1058,10 +1033,8 @@ def render_frames(
             scene_manager=scene_manager,
         )
         if keep_results:
-            # the two names that differ between the container and the collected dict
-            renamed = {"depth_map": "depth_maps", "camera_pose_np": "camera_poses"}
             for field in FrameOutputs.__slots__:
-                return_dict[renamed.get(field, field)].append(getattr(frame, field))
+                return_dict[field].append(getattr(frame, field))
             return_dict["frames"].append(frame_idx)
 
         t2 = time.time()
@@ -1080,40 +1053,6 @@ def render_frames(
             .replace(" ", "    ")
         )
     return return_dict
-
-
-def compute_depth_map_from_attention(selected_points, attn, rayo, scene_manager):
-    if selected_points is None or attn is None or rayo is None:
-        return None
-    # Distance of every selected point to the image plane through the camera origin.
-    plane_normal = -rayo
-    plane_offset = torch.sum(plane_normal * rayo)
-    normal_norm = torch.norm(plane_normal) + 1e-8
-    point_distances = (
-        torch.abs(
-            torch.sum(selected_points.to(plane_normal.device) * plane_normal, dim=-1)
-            - plane_offset
-        )
-        / normal_norm
-    )
-    if (
-        scene_manager.model.bkg_feats is not None
-        and scene_manager.model.bkg_type == 1
-        and scene_manager.step <= scene_manager.scene_config.training.bkg_step
-    ):
-        num_bkg_feats = scene_manager.model.bkg_feats.shape[0]
-        bkg_distance_padding = torch.zeros(
-            point_distances.shape[0],
-            point_distances.shape[1],
-            point_distances.shape[2],
-            num_bkg_feats,
-            device=point_distances.device,
-        )
-        point_distances = torch.cat([point_distances, bkg_distance_padding], dim=-1)
-    depth = torch.sum(
-        attn.squeeze(-1).to(point_distances.device) * point_distances, dim=-1
-    )
-    return depth.squeeze().detach().cpu().numpy().astype(np.float32)
 
 
 def transfer_points_features(scene_manager, original_pc_feats, args):

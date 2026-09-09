@@ -234,10 +234,6 @@ def parse_args(config):
         help="Save the albedo images",
     )
     parser.add_argument(
-        "--write_summary_on_image",
-        action="store_true",
-    )
-    parser.add_argument(
         "--rotate_rendered_images",
         type=int,
         default=None,
@@ -277,11 +273,6 @@ def parse_args(config):
     parser.add_argument(
         "--render_bg_black",
         action="store_true",
-    )
-    parser.add_argument(
-        "--albedo_consisntency_points_id",
-        type=str,
-        default=None,
     )
     add_arguments_from_config(parser, config)
     return parser.parse_args()
